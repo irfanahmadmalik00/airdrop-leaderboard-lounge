@@ -16,7 +16,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, inviteCode?: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
 }
@@ -30,6 +30,9 @@ const adminUser: User = {
   username: 'UmarCryptospace',
   role: 'admin',
 };
+
+// Valid invite code
+const VALID_INVITE_CODE = 'ishowcryptoairdrops';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -49,10 +52,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, inviteCode?: string) => {
     setIsLoading(true);
     
     try {
+      // For new registrations, check invite code
+      if (inviteCode && inviteCode !== VALID_INVITE_CODE) {
+        throw new Error('Invalid invite code');
+      }
+      
       // Simple mock authentication
       if (email === adminUser.email && password === 'Irfan@123#13') {
         setUser(adminUser);
@@ -72,7 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error) {
       console.error('Login failed', error);
-      toast.error('Login failed. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

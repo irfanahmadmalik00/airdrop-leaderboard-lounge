@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown, User, LogOut, Settings, Home, Layers, Video, Award, Sparkles, Bell } from 'lucide-react';
+import { Menu, X, ChevronDown, User, LogOut, Settings, Home, Layers, Video, Award, Sparkles, Bell, Wrench, BookOpen } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -22,7 +22,9 @@ const Navbar = () => {
   // Navigation links
   const navLinks = [
     { name: 'Dashboard', path: '/', icon: <Home className="w-4 h-4 mr-2" /> },
-    { name: 'Airdrops', path: '/airdrops', icon: <Award className="w-4 h-4 mr-2" />, badge: 'New' },
+    { name: 'Airdrops', path: '/airdrops', icon: <Award className="w-4 h-4 mr-2" /> },
+    { name: 'Testnets', path: '/testnets', icon: <BookOpen className="w-4 h-4 mr-2" /> },
+    { name: 'Tools', path: '/tools', icon: <Wrench className="w-4 h-4 mr-2" /> },
     { name: 'Videos', path: '/videos', icon: <Video className="w-4 h-4 mr-2" /> },
   ];
 

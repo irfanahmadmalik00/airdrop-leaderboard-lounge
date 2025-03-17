@@ -1,48 +1,49 @@
 
-import { useState } from 'react';
-import { 
-  LineChart, 
-  Line, 
-  AreaChart, 
-  Area, 
-  BarChart, 
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  Legend
-} from 'recharts';
+import React, { useState } from 'react';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { Tooltip as TooltipUI, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+type ChartType = 'line' | 'bar' | 'pie';
 
 interface ChartCardProps {
   title: string;
-  subtitle?: string;
+  description?: string;
   data: any[];
-  type: 'line' | 'area' | 'bar' | 'pie';
-  xKey: string;
-  yKey: string;
-  height?: number;
+  type: ChartType;
+  dataKey: string;
+  xAxisDataKey?: string;
   colors?: string[];
+  percentageChange?: number;
+  showPercentage?: boolean;
+  valuePrefix?: string;
+  valueSuffix?: string;
+  height?: number;
+  onClick?: () => void;
+  tooltip?: string;
 }
 
-const ChartCard = ({ 
-  title, 
-  subtitle, 
-  data, 
-  type, 
-  xKey, 
-  yKey, 
+const defaultColors = ['#22c55e', '#0EA5E9', '#8B5CF6', '#F59E0B', '#EC4899'];
+
+export const ChartCard = ({
+  title,
+  description,
+  data,
+  type,
+  dataKey,
+  xAxisDataKey = 'name',
+  colors = defaultColors,
+  percentageChange,
+  showPercentage = true,
+  valuePrefix = '',
+  valueSuffix = '',
   height = 300,
-  colors = ['#00FF80', '#00CC66', '#009249', '#00FF80', '#39E991'] 
+  onClick,
+  tooltip
 }: ChartCardProps) => {
-  const [timeframe, setTimeframe] = useState<'1W' | '1M' | '3M' | '1Y' | 'ALL'>('ALL');
-  
-  // This would filter data based on timeframe if it was real data
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const filteredData = data;
   
   // Format large numbers
@@ -58,188 +59,167 @@ const ChartCard = ({
   };
   
   // Custom tooltip
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const renderCustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-crypto-gray p-3 border border-crypto-lightGray/50 rounded-lg shadow-lg">
-          <p className="text-xs text-gray-400 mb-1">{label}</p>
-          <p className="text-crypto-green font-medium">
-            {type === 'pie' 
-              ? `${payload[0].name}: ${payload[0].value}`
-              : `${yKey}: ${payload[0].value.toLocaleString()}`
-            }
-          </p>
+        <div className="bg-crypto-gray p-3 border border-crypto-lightGray/30 rounded-md shadow-lg">
+          <p className="text-sm text-gray-300 mb-1">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={`tooltip-${index}`} className="text-sm font-medium" style={{ color: entry.color }}>
+              {`${entry.name}: ${valuePrefix}${entry.value.toLocaleString()}${valueSuffix}`}
+            </p>
+          ))}
         </div>
       );
     }
     return null;
   };
-
+  
+  const renderChart = () => {
+    switch (type) {
+      case 'line':
+        return (
+          <ResponsiveContainer width="100%" height={height}>
+            <LineChart data={filteredData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <XAxis 
+                dataKey={xAxisDataKey} 
+                tick={{ fill: '#aaa' }} 
+                axisLine={{ stroke: '#333' }} 
+              />
+              <YAxis 
+                tickFormatter={formatYAxis} 
+                tick={{ fill: '#aaa' }} 
+                axisLine={{ stroke: '#333' }} 
+              />
+              <Tooltip content={renderCustomTooltip} />
+              <Line 
+                type="monotone" 
+                dataKey={dataKey} 
+                stroke={colors[0]} 
+                strokeWidth={2} 
+                dot={{ r: 3, strokeWidth: 1 }} 
+                activeDot={{ r: 6, stroke: colors[0], strokeWidth: 1 }} 
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        );
+        
+      case 'bar':
+        return (
+          <ResponsiveContainer width="100%" height={height}>
+            <BarChart data={filteredData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <XAxis 
+                dataKey={xAxisDataKey} 
+                tick={{ fill: '#aaa' }} 
+                axisLine={{ stroke: '#333' }} 
+              />
+              <YAxis 
+                tickFormatter={formatYAxis} 
+                tick={{ fill: '#aaa' }} 
+                axisLine={{ stroke: '#333' }} 
+              />
+              <Tooltip content={renderCustomTooltip} />
+              <Bar 
+                dataKey={dataKey} 
+                radius={[4, 4, 0, 0]}
+                onMouseEnter={(_, index) => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
+              >
+                {filteredData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={hoveredIndex === index ? colors[0] : `${colors[0]}90`}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        );
+        
+      case 'pie':
+        return (
+          <ResponsiveContainer width="100%" height={height}>
+            <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <Pie
+                data={filteredData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={2}
+                dataKey={dataKey}
+                onMouseEnter={(_, index) => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
+              >
+                {filteredData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={colors[index % colors.length]} 
+                    stroke="transparent"
+                    opacity={hoveredIndex === index ? 1 : 0.8}
+                  />
+                ))}
+              </Pie>
+              <Tooltip content={renderCustomTooltip} />
+              <Legend 
+                formatter={(value, entry) => (
+                  <span style={{ color: '#ccc' }}>{value}</span>
+                )} 
+                layout="vertical" 
+                verticalAlign="middle" 
+                align="right"
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        );
+        
+      default:
+        return <div>Chart type not supported</div>;
+    }
+  };
+  
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-5">
+    <Card className="glass-card overflow-hidden dark border-none" onClick={onClick}>
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
           <div>
-            <h3 className="font-bold text-lg">{title}</h3>
-            {subtitle && <p className="text-sm text-gray-400">{subtitle}</p>}
+            <CardTitle className="text-lg font-medium text-gray-100">
+              {title}
+              {tooltip && (
+                <TooltipProvider>
+                  <TooltipUI>
+                    <TooltipTrigger asChild>
+                      <span><Info className="inline ml-2 h-4 w-4 text-gray-400 cursor-help" /></span>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-crypto-gray border-crypto-lightGray/30 p-3 max-w-xs">
+                      <p>{tooltip}</p>
+                    </TooltipContent>
+                  </TooltipUI>
+                </TooltipProvider>
+              )}
+            </CardTitle>
+            {description && <CardDescription className="text-gray-400">{description}</CardDescription>}
           </div>
-          
-          {/* Only show timeframe filters for time-series charts */}
-          {type !== 'pie' && (
-            <div className="flex space-x-1">
-              {['1W', '1M', '3M', '1Y', 'ALL'].map((tf) => (
-                <Button 
-                  key={tf}
-                  size="sm"
-                  variant={timeframe === tf ? "default" : "outline"}
-                  className={timeframe === tf 
-                    ? "bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen h-7 px-2" 
-                    : "border-crypto-lightGray/50 text-gray-400 hover:text-white hover:bg-crypto-lightGray/30 h-7 px-2"
-                  }
-                  onClick={() => setTimeframe(tf as any)}
-                >
-                  {tf}
-                </Button>
-              ))}
+          {percentageChange !== undefined && showPercentage && (
+            <div className={`flex items-center space-x-1 text-sm ${percentageChange >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {percentageChange >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+              <span>{Math.abs(percentageChange).toFixed(2)}%</span>
             </div>
           )}
         </div>
-        
-        <div style={{ height }}>
-          <ResponsiveContainer width="100%" height="100%">
-            {type === 'line' && (
-              <LineChart data={filteredData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="colorLine" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={colors[0]} stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor={colors[0]} stopOpacity={0.2}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                <XAxis 
-                  dataKey={xKey} 
-                  stroke="#666" 
-                  fontSize={12}
-                  axisLine={{ stroke: '#333' }}
-                  tickLine={{ stroke: '#333' }}
-                />
-                <YAxis 
-                  stroke="#666" 
-                  fontSize={12}
-                  axisLine={{ stroke: '#333' }}
-                  tickLine={{ stroke: '#333' }}
-                  tickFormatter={formatYAxis}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Line 
-                  type="monotone" 
-                  dataKey={yKey} 
-                  stroke={colors[0]} 
-                  strokeWidth={2}
-                  dot={{ stroke: colors[0], strokeWidth: 2, r: 4, fill: '#121212' }}
-                  activeDot={{ stroke: colors[0], strokeWidth: 2, r: 6, fill: colors[0] }}
-                />
-              </LineChart>
-            )}
-            
-            {type === 'area' && (
-              <AreaChart data={filteredData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="colorArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={colors[0]} stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor={colors[0]} stopOpacity={0.1}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                <XAxis 
-                  dataKey={xKey} 
-                  stroke="#666" 
-                  fontSize={12}
-                  axisLine={{ stroke: '#333' }}
-                  tickLine={{ stroke: '#333' }}
-                />
-                <YAxis 
-                  stroke="#666" 
-                  fontSize={12}
-                  axisLine={{ stroke: '#333' }}
-                  tickLine={{ stroke: '#333' }}
-                  tickFormatter={formatYAxis}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Area 
-                  type="monotone" 
-                  dataKey={yKey} 
-                  stroke={colors[0]} 
-                  fillOpacity={1}
-                  fill="url(#colorArea)" 
-                />
-              </AreaChart>
-            )}
-            
-            {type === 'bar' && (
-              <BarChart data={filteredData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={colors[0]} stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor={colors[0]} stopOpacity={0.4}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                <XAxis 
-                  dataKey={xKey} 
-                  stroke="#666" 
-                  fontSize={12}
-                  axisLine={{ stroke: '#333' }}
-                  tickLine={{ stroke: '#333' }}
-                />
-                <YAxis 
-                  stroke="#666" 
-                  fontSize={12}
-                  axisLine={{ stroke: '#333' }}
-                  tickLine={{ stroke: '#333' }}
-                  tickFormatter={formatYAxis}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar 
-                  dataKey={yKey} 
-                  fill="url(#colorBar)" 
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            )}
-            
-            {type === 'pie' && (
-              <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <Pie
-                  data={filteredData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  innerRadius={50}
-                  dataKey={yKey}
-                  nameKey={xKey}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {filteredData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend 
-                  formatter={(value) => <span className="text-gray-300">{value}</span>}
-                  iconType="circle"
-                  layout="vertical"
-                  verticalAlign="middle"
-                  align="right"
-                />
-              </PieChart>
-            )}
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
+      </CardHeader>
+      <CardContent className="pt-2 pb-0">
+        {renderChart()}
+      </CardContent>
+      {onClick && (
+        <CardFooter className="pt-4 pb-4">
+          <Button variant="outline" size="sm" className="w-full text-xs text-gray-300 bg-crypto-lightGray/20 border-crypto-lightGray/30 hover:bg-crypto-lightGray/40">
+            View Details
+          </Button>
+        </CardFooter>
+      )}
+    </Card>
   );
 };
-
-export default ChartCard;

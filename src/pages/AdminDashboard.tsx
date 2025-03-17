@@ -1,29 +1,34 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Plus, Trash, Edit, Video, Award, Upload, AlertTriangle, 
-  Check, X, Save, ExternalLink, Clock, Users, Eye
+  LayoutDashboard, 
+  Video as VideoIcon, 
+  Award, 
+  Users, 
+  ChevronDown, 
+  Edit, 
+  Trash, 
+  Plus, 
+  Save, 
+  X,
+  AlertTriangle,
+  Check
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger
-} from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import { useAuth } from '@/lib/auth';
@@ -43,45 +48,63 @@ const AdminDashboard = () => {
     description: '',
     thumbnailUrl: '',
     videoUrl: '',
-    category: '',
+    category: 'Tutorial'
   });
   
   // New airdrop form
   const [newAirdrop, setNewAirdrop] = useState<Partial<Airdrop>>({
     name: '',
     tokenSymbol: '',
-    logo: '',
     description: '',
+    logo: 'https://cryptologos.cc/logos/avalanche-avax-logo.png?v=022',
     fundingAmount: 0,
-    listingDate: '',
-    telegramLink: '',
-    twitterLink: '',
-    website: '',
-    category: '',
-    requirements: [''],
-    estimatedValue: '',
-    status: 'upcoming',
+    category: 'DeFi',
+    status: 'upcoming'
   });
   
-  // Redirect if not an admin
+  // Edit states
+  const [isAddingVideo, setIsAddingVideo] = useState(false);
+  const [isAddingAirdrop, setIsAddingAirdrop] = useState(false);
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
+  const [editingAirdropId, setEditingAirdropId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [deleteType, setDeleteType] = useState<'video' | 'airdrop'>('video');
+  
+  // Check if user is admin
   useEffect(() => {
-    if (!isLoading && (!user || !isAdmin)) {
-      toast.error('Access denied. Admin privileges required.');
+    if (!isAdmin) {
       navigate('/');
+      toast.error('Access denied. Admin privileges required.');
     }
-  }, [user, isAdmin, navigate]);
+  }, [isAdmin, navigate]);
   
-  // Loading state
-  const [isLoading, setIsLoading] = useState(true);
-  
-  useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+  // Cancel all edit states
+  const cancelAllEdits = () => {
+    setIsAddingVideo(false);
+    setIsAddingAirdrop(false);
+    setEditingVideoId(null);
+    setEditingAirdropId(null);
+    setShowDeleteConfirm(null);
     
-    return () => clearTimeout(timer);
-  }, []);
+    // Reset forms
+    setNewVideo({
+      title: '',
+      description: '',
+      thumbnailUrl: '',
+      videoUrl: '',
+      category: 'Tutorial'
+    });
+    
+    setNewAirdrop({
+      name: '',
+      tokenSymbol: '',
+      description: '',
+      logo: 'https://cryptologos.cc/logos/avalanche-avax-logo.png?v=022',
+      fundingAmount: 0,
+      category: 'DeFi',
+      status: 'upcoming'
+    });
+  };
   
   // Add new video
   const handleAddVideo = () => {
@@ -93,593 +116,659 @@ const AdminDashboard = () => {
       videoUrl: newVideo.videoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       dateAdded: new Date().toISOString().split('T')[0],
       views: 0,
-      category: newVideo.category || 'Tutorial',
+      category: newVideo.category || 'Tutorial'
     };
     
     setVideosList([newVideoEntry, ...videosList]);
+    toast.success('Video added successfully!');
+    setIsAddingVideo(false);
+    
+    // Reset form
     setNewVideo({
       title: '',
       description: '',
       thumbnailUrl: '',
       videoUrl: '',
-      category: '',
+      category: 'Tutorial'
+    });
+  };
+  
+  // Update video
+  const handleUpdateVideo = (id: string) => {
+    const updatedVideos = videosList.map(video => {
+      if (video.id === id) {
+        return {
+          ...video,
+          title: newVideo.title || video.title,
+          description: newVideo.description || video.description,
+          thumbnailUrl: newVideo.thumbnailUrl || video.thumbnailUrl,
+          videoUrl: newVideo.videoUrl || video.videoUrl,
+          category: newVideo.category || video.category
+        };
+      }
+      return video;
     });
     
-    toast.success('Video added successfully');
+    setVideosList(updatedVideos);
+    toast.success('Video updated successfully!');
+    setEditingVideoId(null);
+    
+    // Reset form
+    setNewVideo({
+      title: '',
+      description: '',
+      thumbnailUrl: '',
+      videoUrl: '',
+      category: 'Tutorial'
+    });
   };
   
   // Delete video
   const handleDeleteVideo = (id: string) => {
-    setVideosList(videosList.filter(video => video.id !== id));
-    toast.success('Video deleted successfully');
+    const updatedVideos = videosList.filter(video => video.id !== id);
+    setVideosList(updatedVideos);
+    toast.success('Video deleted successfully!');
+    setShowDeleteConfirm(null);
   };
   
   // Add new airdrop
   const handleAddAirdrop = () => {
-    const requirements = newAirdrop.requirements?.filter(req => req.trim() !== '') || ['No requirements specified'];
-    
     const newAirdropEntry: Airdrop = {
-      id: `airdrop-${airdropsList.length + 1}`,
+      id: `custom-${airdropsList.length + 1}`,
       name: newAirdrop.name || 'Untitled Airdrop',
       tokenSymbol: newAirdrop.tokenSymbol || 'TOKEN',
-      logo: newAirdrop.logo || 'https://cryptologos.cc/logos/ethereum-eth-logo.png?v=022',
+      logo: newAirdrop.logo || 'https://cryptologos.cc/logos/avalanche-avax-logo.png?v=022',
       description: newAirdrop.description || 'No description provided',
       fundingAmount: newAirdrop.fundingAmount || 1000000,
-      listingDate: newAirdrop.listingDate || new Date().toISOString().split('T')[0],
-      telegramLink: newAirdrop.telegramLink || 'https://t.me/',
-      twitterLink: newAirdrop.twitterLink || 'https://twitter.com/',
-      website: newAirdrop.website || 'https://example.com',
+      listingDate: new Date().toISOString().split('T')[0],
+      telegramLink: 'https://t.me/example',
+      twitterLink: 'https://twitter.com/example',
+      website: 'https://example.com',
       category: newAirdrop.category || 'DeFi',
-      requirements,
-      estimatedValue: newAirdrop.estimatedValue || '$100-$1,000',
+      requirements: ['Requirement 1', 'Requirement 2'],
+      estimatedValue: '$100-$1,000',
       status: newAirdrop.status || 'upcoming',
-      popularity: 50, // Default popularity score
+      popularity: 50
     };
     
     setAirdropsList([newAirdropEntry, ...airdropsList]);
+    toast.success('Airdrop added successfully!');
+    setIsAddingAirdrop(false);
+    
+    // Reset form
     setNewAirdrop({
       name: '',
       tokenSymbol: '',
-      logo: '',
       description: '',
+      logo: 'https://cryptologos.cc/logos/avalanche-avax-logo.png?v=022',
       fundingAmount: 0,
-      listingDate: '',
-      telegramLink: '',
-      twitterLink: '',
-      website: '',
-      category: '',
-      requirements: [''],
-      estimatedValue: '',
-      status: 'upcoming',
+      category: 'DeFi',
+      status: 'upcoming'
+    });
+  };
+  
+  // Update airdrop
+  const handleUpdateAirdrop = (id: string) => {
+    const updatedAirdrops = airdropsList.map(airdrop => {
+      if (airdrop.id === id) {
+        return {
+          ...airdrop,
+          name: newAirdrop.name || airdrop.name,
+          tokenSymbol: newAirdrop.tokenSymbol || airdrop.tokenSymbol,
+          logo: newAirdrop.logo || airdrop.logo,
+          description: newAirdrop.description || airdrop.description,
+          fundingAmount: newAirdrop.fundingAmount || airdrop.fundingAmount,
+          category: newAirdrop.category || airdrop.category,
+          status: newAirdrop.status || airdrop.status
+        };
+      }
+      return airdrop;
     });
     
-    toast.success('Airdrop added successfully');
+    setAirdropsList(updatedAirdrops);
+    toast.success('Airdrop updated successfully!');
+    setEditingAirdropId(null);
+    
+    // Reset form
+    setNewAirdrop({
+      name: '',
+      tokenSymbol: '',
+      description: '',
+      logo: 'https://cryptologos.cc/logos/avalanche-avax-logo.png?v=022',
+      fundingAmount: 0,
+      category: 'DeFi',
+      status: 'upcoming'
+    });
   };
   
   // Delete airdrop
   const handleDeleteAirdrop = (id: string) => {
-    setAirdropsList(airdropsList.filter(airdrop => airdrop.id !== id));
-    toast.success('Airdrop deleted successfully');
+    const updatedAirdrops = airdropsList.filter(airdrop => airdrop.id !== id);
+    setAirdropsList(updatedAirdrops);
+    toast.success('Airdrop deleted successfully!');
+    setShowDeleteConfirm(null);
   };
   
-  // Add requirement field
-  const addRequirementField = () => {
-    if (newAirdrop.requirements) {
-      setNewAirdrop({
-        ...newAirdrop,
-        requirements: [...newAirdrop.requirements, '']
-      });
-    }
+  // Editing a video
+  const startEditingVideo = (video: VideoType) => {
+    setEditingVideoId(video.id);
+    setNewVideo({
+      title: video.title,
+      description: video.description,
+      thumbnailUrl: video.thumbnailUrl,
+      videoUrl: video.videoUrl,
+      category: video.category
+    });
   };
   
-  // Update requirement
-  const updateRequirement = (index: number, value: string) => {
-    if (newAirdrop.requirements) {
-      const updatedRequirements = [...newAirdrop.requirements];
-      updatedRequirements[index] = value;
-      setNewAirdrop({
-        ...newAirdrop,
-        requirements: updatedRequirements
-      });
-    }
+  // Editing an airdrop
+  const startEditingAirdrop = (airdrop: Airdrop) => {
+    setEditingAirdropId(airdrop.id);
+    setNewAirdrop({
+      name: airdrop.name,
+      tokenSymbol: airdrop.tokenSymbol,
+      description: airdrop.description,
+      logo: airdrop.logo,
+      fundingAmount: airdrop.fundingAmount,
+      category: airdrop.category,
+      status: airdrop.status
+    });
   };
-  
-  // Remove requirement field
-  const removeRequirementField = (index: number) => {
-    if (newAirdrop.requirements && newAirdrop.requirements.length > 1) {
-      const updatedRequirements = [...newAirdrop.requirements];
-      updatedRequirements.splice(index, 1);
-      setNewAirdrop({
-        ...newAirdrop,
-        requirements: updatedRequirements
-      });
-    }
-  };
-  
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-crypto-black flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="w-12 h-12 rounded-full bg-crypto-green/20 mb-4"></div>
-          <div className="h-6 w-32 bg-crypto-green/20 rounded"></div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-crypto-black">
       <Navbar />
       
-      {/* Admin Dashboard */}
-      <section className="pt-24 pb-8 px-4 md:pt-32">
+      {/* Hero Section */}
+      <section className="pt-24 pb-8 px-4 md:pt-32 md:pb-16">
         <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-              <p className="text-gray-400">Manage your videos and airdrops content</p>
+          <div className="flex flex-col items-center text-center max-w-3xl mx-auto animate-fadeIn">
+            <div className="p-3 bg-crypto-gray/60 rounded-full mb-4">
+              <LayoutDashboard className="h-12 w-12 text-crypto-green" />
             </div>
-            <div className="mt-4 md:mt-0 flex items-center space-x-2 bg-crypto-gray px-4 py-2 rounded-lg">
-              <Users className="w-4 h-4 text-crypto-green" />
-              <span className="text-sm">Logged in as <span className="text-crypto-green">{user?.username}</span></span>
-            </div>
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+              <span className="text-white">Admin </span>
+              <span className="text-crypto-green">Dashboard</span>
+            </h1>
+            <p className="text-xl text-gray-300 mb-8 leading-relaxed">
+              Manage videos, airdrops, and user accounts
+            </p>
           </div>
-          
-          <Tabs defaultValue="videos" value={activeTab} onValueChange={setActiveTab} className="mb-8">
-            <TabsList className="bg-crypto-gray">
-              <TabsTrigger value="videos" className="data-[state=active]:bg-crypto-green data-[state=active]:text-crypto-black">
-                <Video className="w-4 h-4 mr-2" />
+        </div>
+      </section>
+      
+      {/* Tabs Section */}
+      <section className="py-6 px-4">
+        <div className="container mx-auto">
+          <Tabs defaultValue="videos" className="w-full" onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+              <TabsTrigger value="videos" className="data-[state=active]:shadow-[0_0_10px_rgba(0,255,128,0.3)]">
+                <VideoIcon className="w-4 h-4 mr-2" />
                 Videos
               </TabsTrigger>
-              <TabsTrigger value="airdrops" className="data-[state=active]:bg-crypto-green data-[state=active]:text-crypto-black">
+              <TabsTrigger value="airdrops" className="data-[state=active]:shadow-[0_0_10px_rgba(0,255,128,0.3)]">
                 <Award className="w-4 h-4 mr-2" />
                 Airdrops
+              </TabsTrigger>
+              <TabsTrigger value="users" className="data-[state=active]:shadow-[0_0_10px_rgba(0,255,128,0.3)] hidden">
+                <Users className="w-4 h-4 mr-2" />
+                Users
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="data-[state=active]:shadow-[0_0_10px_rgba(0,255,128,0.3)] hidden">
+                <LayoutDashboard className="w-4 h-4 mr-2" />
+                Settings
               </TabsTrigger>
             </TabsList>
             
             {/* Videos Tab */}
             <TabsContent value="videos" className="mt-6">
-              <div className="glass-panel rounded-xl p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">Manage Videos</h2>
-                  
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add New Video
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-crypto-gray border-crypto-lightGray max-w-3xl">
-                      <DialogHeader>
-                        <DialogTitle>Add New Video</DialogTitle>
-                        <DialogDescription>
-                          Fill in the details to add a new educational video.
-                        </DialogDescription>
-                      </DialogHeader>
-                      
-                      <div className="grid grid-cols-1 gap-4 py-4">
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Title</label>
-                          <Input
-                            placeholder="Enter video title"
-                            value={newVideo.title}
-                            onChange={(e) => setNewVideo({ ...newVideo, title: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Description</label>
-                          <Textarea
-                            placeholder="Enter video description"
-                            value={newVideo.description}
-                            onChange={(e) => setNewVideo({ ...newVideo, description: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30 min-h-[100px]"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Thumbnail URL</label>
-                          <Input
-                            placeholder="Enter thumbnail URL"
-                            value={newVideo.thumbnailUrl}
-                            onChange={(e) => setNewVideo({ ...newVideo, thumbnailUrl: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Video URL</label>
-                          <Input
-                            placeholder="Enter video URL (YouTube, Vimeo, etc.)"
-                            value={newVideo.videoUrl}
-                            onChange={(e) => setNewVideo({ ...newVideo, videoUrl: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Category</label>
-                          <Select
-                            value={newVideo.category}
-                            onValueChange={(value) => setNewVideo({ ...newVideo, category: value })}
-                          >
-                            <SelectTrigger className="bg-crypto-lightGray/30 border-crypto-lightGray/30">
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-crypto-gray border-crypto-lightGray">
-                              <SelectItem value="Tutorial">Tutorial</SelectItem>
-                              <SelectItem value="Analysis">Analysis</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Manage Videos</h2>
+                <Button onClick={() => {
+                    setIsAddingVideo(true);
+                    cancelAllEdits();
+                  }}
+                  className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Video
+                </Button>
+              </div>
+              
+              {/* Add Video Form */}
+              {isAddingVideo && (
+                <div className="glass-panel rounded-xl p-6 mb-6">
+                  <h3 className="text-lg font-semibold mb-4">Add New Video</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Input
+                        type="text"
+                        placeholder="Video Title"
+                        value={newVideo.title || ''}
+                        onChange={(e) => setNewVideo({ ...newVideo, title: e.target.value })}
+                        className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="text"
+                        placeholder="Thumbnail URL"
+                        value={newVideo.thumbnailUrl || ''}
+                        onChange={(e) => setNewVideo({ ...newVideo, thumbnailUrl: e.target.value })}
+                        className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="text"
+                        placeholder="Video URL"
+                        value={newVideo.videoUrl || ''}
+                        onChange={(e) => setNewVideo({ ...newVideo, videoUrl: e.target.value })}
+                        className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                      />
+                    </div>
+                    <div>
+                      <select
+                        value={newVideo.category || 'Tutorial'}
+                        onChange={(e) => setNewVideo({ ...newVideo, category: e.target.value as 'Tutorial' | 'Analysis' })}
+                        className="w-full rounded-md border border-crypto-lightGray/30 bg-crypto-gray text-gray-300 focus:border-crypto-green focus:ring-crypto-green/20"
+                      >
+                        <option value="Tutorial">Tutorial</option>
+                        <option value="Analysis">Analysis</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Textarea
+                        placeholder="Video Description"
+                        value={newVideo.description || ''}
+                        onChange={(e) => setNewVideo({ ...newVideo, description: e.target.value })}
+                        className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4 gap-2">
+                    <Button 
+                      variant="ghost" 
+                      onClick={cancelAllEdits}
+                      className="text-gray-300 hover:bg-crypto-lightGray"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleAddVideo}
+                      className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Video
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Video List */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {videosList.map((video) => (
+                  <div key={video.id} className="glass-panel rounded-xl p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">{video.title}</h3>
+                        <Badge className="bg-crypto-lightGray/50 text-xs">{video.category}</Badge>
                       </div>
-                      
-                      <DialogFooter>
+                      <div className="flex space-x-2">
                         <Button 
-                          onClick={handleAddVideo}
-                          className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => startEditingVideo(video)}
+                          disabled={editingVideoId !== null}
+                          className="text-gray-300 hover:text-crypto-green"
                         >
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Video
+                          <Edit className="w-4 h-4" />
                         </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-crypto-lightGray/30">
-                        <th className="text-left py-3 px-4">Title</th>
-                        <th className="text-left py-3 px-4">Category</th>
-                        <th className="text-left py-3 px-4">Date Added</th>
-                        <th className="text-left py-3 px-4">Views</th>
-                        <th className="text-right py-3 px-4">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {videosList.map((video) => (
-                        <tr key={video.id} className="border-b border-crypto-lightGray/20 hover:bg-crypto-lightGray/10">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center">
-                              <img
-                                src={video.thumbnailUrl}
-                                alt={video.title}
-                                className="w-10 h-10 object-cover rounded mr-3"
-                              />
-                              <div className="truncate max-w-[200px]">{video.title}</div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">{video.category}</td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center">
-                              <Clock className="w-3 h-3 mr-2 text-gray-400" />
-                              {video.dateAdded}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center">
-                              <Eye className="w-3 h-3 mr-2 text-gray-400" />
-                              {video.views.toLocaleString()}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end space-x-2">
-                              <a 
-                                href={video.videoUrl} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="p-2 text-gray-400 hover:text-white transition-colors"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </a>
-                              <button 
-                                onClick={() => handleDeleteVideo(video.id)}
-                                className="p-2 text-red-400 hover:text-red-300 transition-colors"
-                              >
-                                <Trash className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => {
+                            setShowDeleteConfirm(video.id);
+                            setDeleteType('video');
+                          }}
+                          disabled={showDeleteConfirm !== null}
+                          className="text-gray-300 hover:text-red-500"
+                        >
+                          <Trash className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Edit Video Form */}
+                    {editingVideoId === video.id ? (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <Input
+                              type="text"
+                              placeholder="Video Title"
+                              value={newVideo.title || ''}
+                              onChange={(e) => setNewVideo({ ...newVideo, title: e.target.value })}
+                              className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                            />
+                          </div>
+                          <div>
+                            <Input
+                              type="text"
+                              placeholder="Thumbnail URL"
+                              value={newVideo.thumbnailUrl || ''}
+                              onChange={(e) => setNewVideo({ ...newVideo, thumbnailUrl: e.target.value })}
+                              className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                            />
+                          </div>
+                          <div>
+                            <Input
+                              type="text"
+                              placeholder="Video URL"
+                              value={newVideo.videoUrl || ''}
+                              onChange={(e) => setNewVideo({ ...newVideo, videoUrl: e.target.value })}
+                              className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                            />
+                          </div>
+                          <div>
+                            <select
+                              value={newVideo.category || 'Tutorial'}
+                              onChange={(e) => setNewVideo({ ...newVideo, category: e.target.value as 'Tutorial' | 'Analysis' })}
+                              className="w-full rounded-md border border-crypto-lightGray/30 bg-crypto-gray text-gray-300 focus:border-crypto-green focus:ring-crypto-green/20"
+                            >
+                              <option value="Tutorial">Tutorial</option>
+                              <option value="Analysis">Analysis</option>
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <Textarea
+                              placeholder="Video Description"
+                              value={newVideo.description || ''}
+                              onChange={(e) => setNewVideo({ ...newVideo, description: e.target.value })}
+                              className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            onClick={cancelAllEdits}
+                            className="text-gray-300 hover:bg-crypto-lightGray"
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            onClick={() => handleUpdateVideo(video.id)}
+                            className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+                          >
+                            <Save className="w-4 h-4 mr-2" />
+                            Update Video
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-gray-400">{video.description}</p>
+                    )}
+                  </div>
+                ))}
               </div>
             </TabsContent>
             
             {/* Airdrops Tab */}
             <TabsContent value="airdrops" className="mt-6">
-              <div className="glass-panel rounded-xl p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">Manage Airdrops</h2>
-                  
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add New Airdrop
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-crypto-gray border-crypto-lightGray max-w-4xl max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>Add New Airdrop</DialogTitle>
-                        <DialogDescription>
-                          Fill in the details to add a new crypto airdrop.
-                        </DialogDescription>
-                      </DialogHeader>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Name</label>
-                          <Input
-                            placeholder="Enter airdrop name"
-                            value={newAirdrop.name}
-                            onChange={(e) => setNewAirdrop({ ...newAirdrop, name: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Token Symbol</label>
-                          <Input
-                            placeholder="Enter token symbol"
-                            value={newAirdrop.tokenSymbol}
-                            onChange={(e) => setNewAirdrop({ ...newAirdrop, tokenSymbol: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Logo URL</label>
-                          <Input
-                            placeholder="Enter logo URL"
-                            value={newAirdrop.logo}
-                            onChange={(e) => setNewAirdrop({ ...newAirdrop, logo: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Category</label>
-                          <Select
-                            value={newAirdrop.category}
-                            onValueChange={(value) => setNewAirdrop({ ...newAirdrop, category: value })}
-                          >
-                            <SelectTrigger className="bg-crypto-lightGray/30 border-crypto-lightGray/30">
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-crypto-gray border-crypto-lightGray">
-                              <SelectItem value="DeFi">DeFi</SelectItem>
-                              <SelectItem value="Layer 1">Layer 1</SelectItem>
-                              <SelectItem value="Layer 2">Layer 2</SelectItem>
-                              <SelectItem value="ZK Rollup">ZK Rollup</SelectItem>
-                              <SelectItem value="Modular Blockchain">Modular Blockchain</SelectItem>
-                              <SelectItem value="Smart Contract Platform">Smart Contract Platform</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="space-y-2 md:col-span-2">
-                          <label className="text-sm text-gray-400">Description</label>
-                          <Textarea
-                            placeholder="Enter airdrop description"
-                            value={newAirdrop.description}
-                            onChange={(e) => setNewAirdrop({ ...newAirdrop, description: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30 min-h-[100px]"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Funding Amount (USD)</label>
-                          <Input
-                            type="number"
-                            placeholder="Enter funding amount"
-                            value={newAirdrop.fundingAmount?.toString() || ''}
-                            onChange={(e) => setNewAirdrop({ 
-                              ...newAirdrop, 
-                              fundingAmount: parseFloat(e.target.value) || 0 
-                            })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Listing Date</label>
-                          <Input
-                            type="date"
-                            value={newAirdrop.listingDate}
-                            onChange={(e) => setNewAirdrop({ ...newAirdrop, listingDate: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Telegram Link</label>
-                          <Input
-                            placeholder="Enter Telegram link"
-                            value={newAirdrop.telegramLink}
-                            onChange={(e) => setNewAirdrop({ ...newAirdrop, telegramLink: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Twitter Link</label>
-                          <Input
-                            placeholder="Enter Twitter link"
-                            value={newAirdrop.twitterLink}
-                            onChange={(e) => setNewAirdrop({ ...newAirdrop, twitterLink: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Website</label>
-                          <Input
-                            placeholder="Enter website URL"
-                            value={newAirdrop.website}
-                            onChange={(e) => setNewAirdrop({ ...newAirdrop, website: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Estimated Value</label>
-                          <Input
-                            placeholder="Enter estimated value range"
-                            value={newAirdrop.estimatedValue}
-                            onChange={(e) => setNewAirdrop({ ...newAirdrop, estimatedValue: e.target.value })}
-                            className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-400">Status</label>
-                          <Select
-                            value={newAirdrop.status}
-                            onValueChange={(value: 'upcoming' | 'active' | 'ended') => 
-                              setNewAirdrop({ ...newAirdrop, status: value })}
-                          >
-                            <SelectTrigger className="bg-crypto-lightGray/30 border-crypto-lightGray/30">
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-crypto-gray border-crypto-lightGray">
-                              <SelectItem value="upcoming">Upcoming</SelectItem>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="ended">Ended</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="md:col-span-2 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="text-sm text-gray-400">Requirements</label>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={addRequirementField}
-                              className="h-7 px-2 border-crypto-green text-crypto-green hover:bg-crypto-green/10"
-                            >
-                              <Plus className="w-3 h-3 mr-1" />
-                              Add Requirement
-                            </Button>
-                          </div>
-                          
-                          {newAirdrop.requirements?.map((req, index) => (
-                            <div key={index} className="flex items-center space-x-2">
-                              <Input
-                                placeholder={`Requirement ${index + 1}`}
-                                value={req}
-                                onChange={(e) => updateRequirement(index, e.target.value)}
-                                className="bg-crypto-lightGray/30 border-crypto-lightGray/30"
-                              />
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                onClick={() => removeRequirementField(index)}
-                                className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                                disabled={newAirdrop.requirements?.length === 1}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Manage Airdrops</h2>
+                <Button 
+                  onClick={() => {
+                    setIsAddingAirdrop(true);
+                    cancelAllEdits();
+                  }}
+                  className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Airdrop
+                </Button>
+              </div>
+              
+              {/* Add Airdrop Form */}
+              {isAddingAirdrop && (
+                <div className="glass-panel rounded-xl p-6 mb-6">
+                  <h3 className="text-lg font-semibold mb-4">Add New Airdrop</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Input
+                        type="text"
+                        placeholder="Airdrop Name"
+                        value={newAirdrop.name || ''}
+                        onChange={(e) => setNewAirdrop({ ...newAirdrop, name: e.target.value })}
+                        className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="text"
+                        placeholder="Token Symbol"
+                        value={newAirdrop.tokenSymbol || ''}
+                        onChange={(e) => setNewAirdrop({ ...newAirdrop, tokenSymbol: e.target.value })}
+                        className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="text"
+                        placeholder="Logo URL"
+                        value={newAirdrop.logo || ''}
+                        onChange={(e) => setNewAirdrop({ ...newAirdrop, logo: e.target.value })}
+                        className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="number"
+                        placeholder="Funding Amount"
+                        value={newAirdrop.fundingAmount || 0}
+                        onChange={(e) => setNewAirdrop({ ...newAirdrop, fundingAmount: Number(e.target.value) })}
+                        className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                      />
+                    </div>
+                    <div>
+                      <select
+                        value={newAirdrop.category || 'DeFi'}
+                        onChange={(e) => setNewAirdrop({ ...newAirdrop, category: e.target.value as 'DeFi' | 'Layer 1' | 'Layer 2' | 'ZK Rollup' | 'Modular Blockchain' | 'Smart Contract Platform' })}
+                        className="w-full rounded-md border border-crypto-lightGray/30 bg-crypto-gray text-gray-300 focus:border-crypto-green focus:ring-crypto-green/20"
+                      >
+                        <option value="DeFi">DeFi</option>
+                        <option value="Layer 1">Layer 1</option>
+                        <option value="Layer 2">Layer 2</option>
+                        <option value="ZK Rollup">ZK Rollup</option>
+                        <option value="Modular Blockchain">Modular Blockchain</option>
+                        <option value="Smart Contract Platform">Smart Contract Platform</option>
+                      </select>
+                    </div>
+                    <div>
+                      <select
+                        value={newAirdrop.status || 'upcoming'}
+                        onChange={(e) => setNewAirdrop({ ...newAirdrop, status: e.target.value as 'upcoming' | 'active' | 'ended' })}
+                        className="w-full rounded-md border border-crypto-lightGray/30 bg-crypto-gray text-gray-300 focus:border-crypto-green focus:ring-crypto-green/20"
+                      >
+                        <option value="upcoming">Upcoming</option>
+                        <option value="active">Active</option>
+                        <option value="ended">Ended</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Textarea
+                        placeholder="Airdrop Description"
+                        value={newAirdrop.description || ''}
+                        onChange={(e) => setNewAirdrop({ ...newAirdrop, description: e.target.value })}
+                        className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4 gap-2">
+                    <Button 
+                      variant="ghost" 
+                      onClick={cancelAllEdits}
+                      className="text-gray-300 hover:bg-crypto-lightGray"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleAddAirdrop}
+                      className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Airdrop
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Airdrop List */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {airdropsList.map((airdrop) => (
+                  <div key={airdrop.id} className="glass-panel rounded-xl p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">{airdrop.name}</h3>
+                        <Badge className="bg-crypto-lightGray/50 text-xs">{airdrop.category}</Badge>
                       </div>
-                      
-                      <DialogFooter>
+                      <div className="flex space-x-2">
                         <Button 
-                          onClick={handleAddAirdrop}
-                          className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => startEditingAirdrop(airdrop)}
+                          disabled={editingAirdropId !== null}
+                          className="text-gray-300 hover:text-crypto-green"
                         >
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Airdrop
+                          <Edit className="w-4 h-4" />
                         </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-crypto-lightGray/30">
-                        <th className="text-left py-3 px-4">Name</th>
-                        <th className="text-left py-3 px-4">Category</th>
-                        <th className="text-left py-3 px-4">Status</th>
-                        <th className="text-left py-3 px-4">Listing Date</th>
-                        <th className="text-right py-3 px-4">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {airdropsList.map((airdrop) => (
-                        <tr key={airdrop.id} className="border-b border-crypto-lightGray/20 hover:bg-crypto-lightGray/10">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center">
-                              <img
-                                src={airdrop.logo}
-                                alt={airdrop.name}
-                                className="w-8 h-8 object-cover rounded-full bg-white p-1 mr-3"
-                              />
-                              <div>
-                                <div>{airdrop.name}</div>
-                                <div className="text-xs text-gray-400">{airdrop.tokenSymbol}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">{airdrop.category}</td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${
-                              airdrop.status === 'active' 
-                                ? 'bg-crypto-green/20 text-crypto-green' 
-                                : airdrop.status === 'upcoming'
-                                ? 'bg-blue-500/20 text-blue-400'
-                                : 'bg-gray-500/20 text-gray-400'
-                            }`}>
-                              {airdrop.status}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center">
-                              <Clock className="w-3 h-3 mr-2 text-gray-400" />
-                              {airdrop.listingDate}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end space-x-2">
-                              <a 
-                                href={airdrop.telegramLink} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="p-2 text-gray-400 hover:text-white transition-colors"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </a>
-                              <button 
-                                onClick={() => handleDeleteAirdrop(airdrop.id)}
-                                className="p-2 text-red-400 hover:text-red-300 transition-colors"
-                              >
-                                <Trash className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => {
+                            setShowDeleteConfirm(airdrop.id);
+                            setDeleteType('airdrop');
+                          }}
+                          disabled={showDeleteConfirm !== null}
+                          className="text-gray-300 hover:text-red-500"
+                        >
+                          <Trash className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Edit Airdrop Form */}
+                    {editingAirdropId === airdrop.id ? (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <Input
+                              type="text"
+                              placeholder="Airdrop Name"
+                              value={newAirdrop.name || ''}
+                              onChange={(e) => setNewAirdrop({ ...newAirdrop, name: e.target.value })}
+                              className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                            />
+                          </div>
+                          <div>
+                            <Input
+                              type="text"
+                              placeholder="Token Symbol"
+                              value={newAirdrop.tokenSymbol || ''}
+                              onChange={(e) => setNewAirdrop({ ...newAirdrop, tokenSymbol: e.target.value })}
+                              className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                            />
+                          </div>
+                          <div>
+                            <Input
+                              type="text"
+                              placeholder="Logo URL"
+                              value={newAirdrop.logo || ''}
+                              onChange={(e) => setNewAirdrop({ ...newAirdrop, logo: e.target.value })}
+                              className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                            />
+                          </div>
+                          <div>
+                            <Input
+                              type="number"
+                              placeholder="Funding Amount"
+                              value={newAirdrop.fundingAmount || 0}
+                              onChange={(e) => setNewAirdrop({ ...newAirdrop, fundingAmount: Number(e.target.value) })}
+                              className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                            />
+                          </div>
+                          <div>
+                            <select
+                              value={newAirdrop.category || 'DeFi'}
+                              onChange={(e) => setNewAirdrop({ ...newAirdrop, category: e.target.value as 'DeFi' | 'Layer 1' | 'Layer 2' | 'ZK Rollup' | 'Modular Blockchain' | 'Smart Contract Platform' })}
+                              className="w-full rounded-md border border-crypto-lightGray/30 bg-crypto-gray text-gray-300 focus:border-crypto-green focus:ring-crypto-green/20"
+                            >
+                              <option value="DeFi">DeFi</option>
+                              <option value="Layer 1">Layer 1</option>
+                              <option value="Layer 2">Layer 2</option>
+                              <option value="ZK Rollup">ZK Rollup</option>
+                              <option value="Modular Blockchain">Modular Blockchain</option>
+                              <option value="Smart Contract Platform">Smart Contract Platform</option>
+                            </select>
+                          </div>
+                          <div>
+                            <select
+                              value={newAirdrop.status || 'upcoming'}
+                              onChange={(e) => setNewAirdrop({ ...newAirdrop, status: e.target.value as 'upcoming' | 'active' | 'ended' })}
+                              className="w-full rounded-md border border-crypto-lightGray/30 bg-crypto-gray text-gray-300 focus:border-crypto-green focus:ring-crypto-green/20"
+                            >
+                              <option value="upcoming">Upcoming</option>
+                              <option value="active">Active</option>
+                              <option value="ended">Ended</option>
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <Textarea
+                              placeholder="Airdrop Description"
+                              value={newAirdrop.description || ''}
+                              onChange={(e) => setNewAirdrop({ ...newAirdrop, description: e.target.value })}
+                              className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            onClick={cancelAllEdits}
+                            className="text-gray-300 hover:bg-crypto-lightGray"
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            onClick={() => handleUpdateAirdrop(airdrop.id)}
+                            className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+                          >
+                            <Save className="w-4 h-4 mr-2" />
+                            Update Airdrop
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-gray-400">{airdrop.description}</p>
+                    )}
+                  </div>
+                ))}
               </div>
             </TabsContent>
-          </Tabs>
-        </div>
-      </section>
-    </div>
-  );
-};
-
-export default AdminDashboard;
+            
+            {/* Users Tab */}
+            <TabsContent value="users" className="mt-6">
+              <h2 className="text-2xl font-bold mb-4">Manage Users</h2>
+              <Alert className="bg-crypto-gray/80 border-crypto-green/30">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs text-gray-300">
+                  This feature is under development.
+                </AlertDescription>
+              </Alert>
+            </TabsContent>
+            
+            {/* Settings Tab */}
+            <TabsContent value="settings" className="mt-6">
+              <h2 className="text-2xl font-bold mb-4">Settings</h2>
+              <Alert className="bg-crypto-gray/80 border-crypto-green/30">
+                <AlertTriangle className="h-

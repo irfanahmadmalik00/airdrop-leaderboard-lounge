@@ -164,9 +164,7 @@ export const ChartCard = ({
               </Pie>
               <Tooltip content={renderCustomTooltip} />
               <Legend 
-                formatter={(value, entry) => (
-                  <span style={{ color: '#ccc' }}>{value}</span>
-                )} 
+                formatter={(value) => <span style={{ color: '#ccc' }}>{value}</span>} 
                 layout="vertical" 
                 verticalAlign="middle" 
                 align="right"
@@ -191,7 +189,7 @@ export const ChartCard = ({
                 <TooltipProvider>
                   <TooltipUI>
                     <TooltipTrigger asChild>
-                      <span><Info className="inline ml-2 h-4 w-4 text-gray-400 cursor-help" /></span>
+                      <Info className="inline ml-2 h-4 w-4 text-gray-400 cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent className="bg-crypto-gray border-crypto-lightGray/30 p-3 max-w-xs">
                       <p>{tooltip}</p>

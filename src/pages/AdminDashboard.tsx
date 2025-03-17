@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -28,17 +27,18 @@ import {
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import { useAuth } from '@/lib/auth';
-import { videos, Video, airdrops, Airdrop } from '@/lib/data';
+import { videos, airdrops, Airdrop } from '@/lib/data';
+import type { Video as VideoType } from '@/lib/data';
 
 const AdminDashboard = () => {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('videos');
-  const [videosList, setVideosList] = useState<Video[]>(videos);
+  const [videosList, setVideosList] = useState<VideoType[]>(videos);
   const [airdropsList, setAirdropsList] = useState<Airdrop[]>(airdrops);
   
   // New video form
-  const [newVideo, setNewVideo] = useState<Partial<Video>>({
+  const [newVideo, setNewVideo] = useState<Partial<VideoType>>({
     title: '',
     description: '',
     thumbnailUrl: '',
@@ -85,7 +85,7 @@ const AdminDashboard = () => {
   
   // Add new video
   const handleAddVideo = () => {
-    const newVideoEntry: Video = {
+    const newVideoEntry: VideoType = {
       id: `v${videosList.length + 1}`,
       title: newVideo.title || 'Untitled Video',
       description: newVideo.description || 'No description provided',

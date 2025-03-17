@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { Loader2 } from "lucide-react";
 import Index from "./pages/Index";
 import Airdrops from "./pages/Airdrops";
 import Videos from "./pages/Videos";
@@ -12,14 +13,29 @@ import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+// Loading Spinner Component
+const LoadingSpinner = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-crypto-black">
+    <Loader2 className="h-12 w-12 text-crypto-green animate-spin mb-4" />
+    <p className="text-gray-400 animate-pulse">Loading iShowCrypto...</p>
+  </div>
+);
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
   
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center bg-crypto-black">Loading...</div>;
+    return <LoadingSpinner />;
   }
   
   if (!user) {
@@ -34,7 +50,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isLoading } = useAuth();
   
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center bg-crypto-black">Loading...</div>;
+    return <LoadingSpinner />;
   }
   
   if (!user || !isAdmin) {
@@ -60,7 +76,7 @@ const App = () => (
     <TooltipProvider>
       <AuthProvider>
         <Toaster />
-        <Sonner />
+        <Sonner position="top-right" />
         <BrowserRouter>
           <AppRoutes />
         </BrowserRouter>

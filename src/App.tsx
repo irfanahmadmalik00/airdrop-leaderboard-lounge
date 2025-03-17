@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,7 +21,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Loading Spinner Component
 const LoadingSpinner = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-crypto-black">
     <Loader2 className="h-12 w-12 text-crypto-green animate-spin mb-4" />
@@ -30,7 +28,6 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
   
@@ -45,7 +42,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Admin only route
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isLoading } = useAuth();
   

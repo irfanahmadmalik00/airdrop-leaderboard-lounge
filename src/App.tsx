@@ -13,6 +13,9 @@ import Testnets from "./pages/Testnets";
 import Tools from "./pages/Tools";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
+import UserDashboard from "./pages/UserDashboard";
+import AboutUs from "./pages/AboutUs";
+import HowItWorks from "./pages/HowItWorks";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -67,7 +70,10 @@ const AppRoutes = () => (
     <Route path="/testnets" element={<ProtectedRoute><Testnets /></ProtectedRoute>} />
     <Route path="/tools" element={<Tools />} />
     <Route path="/login" element={<Login />} />
+    <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+    <Route path="/about" element={<AboutUs />} />
+    <Route path="/how-it-works" element={<HowItWorks />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

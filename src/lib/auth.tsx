@@ -11,14 +11,19 @@ export interface User {
   username: string;
   role: UserRole;
   avatar?: string;
+  ownedAirdrops?: string[]; // IDs of airdrops owned by this user
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string, inviteCode?: string) => Promise<void>;
+  login: (email: string, code?: string) => Promise<void>;
   logout: () => void;
+  register: (email: string, username: string, code: string) => Promise<void>;
+  requestVerificationCode: (email: string, isLogin?: boolean) => Promise<void>;
   isAdmin: boolean;
+  pendingVerificationEmail: string | null;
+  setPendingVerificationEmail: (email: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,14 +34,16 @@ const adminUser: User = {
   email: 'malickirfan00@gmail.com',
   username: 'UmarCryptospace',
   role: 'admin',
+  ownedAirdrops: [],
 };
 
-// Valid invite code
-const VALID_INVITE_CODE = 'ishowcryptoairdrops';
+// Valid invite/verification code for demo
+const VALID_VERIFICATION_CODE = '123456';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -52,67 +59,123 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string, inviteCode?: string) => {
+  // Request a verification code (for both login and registration)
+  const requestVerificationCode = async (email: string, isLogin = false) => {
     setIsLoading(true);
     
     try {
-      // Check if this is a registration (inviteCode provided)
-      if (inviteCode !== undefined) {
-        // Validate invite code
-        if (inviteCode !== VALID_INVITE_CODE) {
-          throw new Error('Invalid invite code');
-        }
+      // In a real app, this would send an email with a verification code
+      // For demo purposes, we'll just pretend an email was sent
+      
+      // Check if trying to login as admin
+      if (isLogin && email === adminUser.email) {
+        toast.success(`Verification code sent to ${email}. (Use "123456" for demo)`);
+      } else {
+        // For regular users
+        toast.success(`Verification code sent to ${email}. (Use "123456" for demo)`);
         
-        // Create a regular user
-        const newUser: User = {
-          id: Math.random().toString(36).substring(2, 9),
-          email,
-          username: email.split('@')[0],
-          role: 'user',
-        };
-        setUser(newUser);
-        localStorage.setItem('cryptoUser', JSON.stringify(newUser));
-        toast.success('Registration successful!');
-        return;
+        // Store the pending verification email
+        setPendingVerificationEmail(email);
+      }
+    } catch (error) {
+      console.error('Failed to send verification code', error);
+      toast.error('Failed to send verification code. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Register a new user
+  const register = async (email: string, username: string, code: string) => {
+    setIsLoading(true);
+    
+    try {
+      // Validate verification code
+      if (code !== VALID_VERIFICATION_CODE) {
+        throw new Error('Invalid verification code');
       }
       
-      // Handle normal login
-      if (email === adminUser.email && password === 'Irfan@123#13') {
+      // Check if user already exists
+      const storedUsers = localStorage.getItem('registeredUsers');
+      let users = storedUsers ? JSON.parse(storedUsers) : [];
+      const existingUser = users.find((u: User) => u.email === email);
+      
+      if (existingUser) {
+        throw new Error('User with this email already exists');
+      }
+      
+      // Create a new user
+      const newUser: User = {
+        id: Math.random().toString(36).substring(2, 9),
+        email,
+        username,
+        role: 'user',
+        ownedAirdrops: [],
+      };
+      
+      // Add to registered users
+      users.push(newUser);
+      localStorage.setItem('registeredUsers', JSON.stringify(users));
+      
+      // Log the user in
+      setUser(newUser);
+      localStorage.setItem('cryptoUser', JSON.stringify(newUser));
+      
+      // Clear pending verification email
+      setPendingVerificationEmail(null);
+      
+      toast.success('Registration successful!');
+    } catch (error) {
+      console.error('Registration failed', error);
+      toast.error(error instanceof Error ? error.message : 'Registration failed. Please try again.');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Login with email verification code
+  const login = async (email: string, code?: string) => {
+    setIsLoading(true);
+    
+    try {
+      // If no code provided, we're just requesting a code
+      if (!code) {
+        throw new Error('Verification code required');
+      }
+      
+      // Validate verification code
+      if (code !== VALID_VERIFICATION_CODE) {
+        throw new Error('Invalid verification code');
+      }
+      
+      // Check if admin login
+      if (email === adminUser.email) {
         setUser(adminUser);
         localStorage.setItem('cryptoUser', JSON.stringify(adminUser));
         toast.success('Welcome back, admin!');
-      } else {
-        // Check if user exists in localStorage (for previously registered users)
-        const storedUsers = localStorage.getItem('registeredUsers');
-        let users = storedUsers ? JSON.parse(storedUsers) : [];
-        const existingUser = users.find((u: User) => u.email === email);
-        
-        if (existingUser) {
-          setUser(existingUser);
-          localStorage.setItem('cryptoUser', JSON.stringify(existingUser));
-          toast.success('Login successful!');
-        } else {
-          // For demo purposes, create a new user if they don't exist
-          const newUser: User = {
-            id: Math.random().toString(36).substring(2, 9),
-            email,
-            username: email.split('@')[0],
-            role: 'user',
-          };
-          setUser(newUser);
-          localStorage.setItem('cryptoUser', JSON.stringify(newUser));
-          
-          // Save to "registered users"
-          users.push(newUser);
-          localStorage.setItem('registeredUsers', JSON.stringify(users));
-          
-          toast.success('Login successful!');
-        }
+        return;
       }
+      
+      // Check if user exists in localStorage
+      const storedUsers = localStorage.getItem('registeredUsers');
+      let users = storedUsers ? JSON.parse(storedUsers) : [];
+      const existingUser = users.find((u: User) => u.email === email);
+      
+      if (existingUser) {
+        setUser(existingUser);
+        localStorage.setItem('cryptoUser', JSON.stringify(existingUser));
+        toast.success('Login successful!');
+      } else {
+        throw new Error('User not found. Please register first.');
+      }
+      
+      // Clear pending verification email
+      setPendingVerificationEmail(null);
     } catch (error) {
       console.error('Login failed', error);
       toast.error(error instanceof Error ? error.message : 'Login failed. Please try again.');
-      throw error; // Re-throw to let the login component handle the error
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -133,7 +196,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isLoading,
         login,
         logout,
+        register,
+        requestVerificationCode,
         isAdmin,
+        pendingVerificationEmail,
+        setPendingVerificationEmail,
       }}
     >
       {children}

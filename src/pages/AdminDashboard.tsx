@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -771,4 +772,54 @@ const AdminDashboard = () => {
             <TabsContent value="settings" className="mt-6">
               <h2 className="text-2xl font-bold mb-4">Settings</h2>
               <Alert className="bg-crypto-gray/80 border-crypto-green/30">
-                <AlertTriangle className="h-
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs text-gray-300">
+                  This feature is under development.
+                </AlertDescription>
+              </Alert>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </section>
+      
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <Dialog open={!!showDeleteConfirm} onOpenChange={() => setShowDeleteConfirm(null)}>
+          <DialogContent className="bg-crypto-gray border-crypto-lightGray/30">
+            <DialogHeader>
+              <DialogTitle className="text-white">Confirm Deletion</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Are you sure you want to delete this {deleteType}? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowDeleteConfirm(null)}
+                className="text-gray-300 hover:bg-crypto-lightGray"
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => {
+                  if (deleteType === 'video' && showDeleteConfirm) {
+                    handleDeleteVideo(showDeleteConfirm);
+                  } else if (deleteType === 'airdrop' && showDeleteConfirm) {
+                    handleDeleteAirdrop(showDeleteConfirm);
+                  }
+                }}
+                className="bg-red-500 hover:bg-red-600"
+              >
+                <Trash className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+};
+
+export default AdminDashboard;

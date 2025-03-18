@@ -1,683 +1,746 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Plus,
-  Edit,
-  Trash,
-  Save,
-  X,
-  AlertTriangle,
-  Calendar,
-  Globe,
-  Twitter,
-  ExternalLink,
-  User
-} from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/lib/auth';
+import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import Navbar from '@/components/Navbar';
-import { useAuth } from '@/lib/auth';
-import { airdrops, Airdrop } from '@/lib/data';
+import { PlusCircle, Pencil, Trash2, Pin, CheckCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+// Define the Airdrop interface to match your data structure
+interface Airdrop {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  link: string;
+  fundingAmount: number;
+  rewards: string;
+  timeCommitment: string;
+  workRequired: string;
+  status: 'active' | 'upcoming' | 'ended';
+  completed: boolean;
+  pinned: boolean;
+  userId: string; // ID of the user who added this airdrop
+}
+
+// Mock data for user's airdrops
+const mockUserAirdrops: Airdrop[] = [
+  {
+    id: 'ua1',
+    name: 'My Ethereum 2.0 Airdrop',
+    description: 'Early contributor airdrop for Ethereum 2.0 stakers',
+    category: 'Layer 1 & Testnet Mainnet',
+    link: 'https://ethereum.org',
+    fundingAmount: 25000000,
+    rewards: 'Approximately 50-500 ETH tokens',
+    timeCommitment: '2-3 hours',
+    workRequired: 'Stake ETH in the beacon chain',
+    status: 'active',
+    completed: false,
+    pinned: true,
+    userId: '1'
+  },
+  {
+    id: 'ua2',
+    name: 'Polygon zkEVM Testnet',
+    description: 'Participate in the Polygon zkEVM testnet for potential airdrop',
+    category: 'Layer 1 & Testnet Mainnet',
+    link: 'https://polygon.technology',
+    fundingAmount: 10000000,
+    rewards: 'Estimated 100-1000 MATIC tokens',
+    timeCommitment: '1-2 hours',
+    workRequired: 'Complete 5 transactions on the testnet',
+    status: 'upcoming',
+    completed: false,
+    pinned: false,
+    userId: '1'
+  }
+];
+
+const predefinedCategories = [
+  'Top 10 Projects',
+  'Layer 1 & Testnet Mainnet',
+  'Telegram Bot Airdrops',
+  'Daily Check-in Airdrops',
+  'Twitter Airdrops',
+  'Social Airdrops',
+  'AI Airdrops',
+  'Wallet Airdrops',
+  'Exchange Airdrops'
+];
 
 const UserDashboard = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [userAirdrops, setUserAirdrops] = useState<Airdrop[]>([]);
+  const [userAirdrops, setUserAirdrops] = useState<Airdrop[]>(mockUserAirdrops);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [currentAirdrop, setCurrentAirdrop] = useState<Airdrop | null>(null);
+  const [activeTab, setActiveTab] = useState('all');
+  const [newCategory, setNewCategory] = useState('');
+  const [isNewCategoryDialogOpen, setIsNewCategoryDialogOpen] = useState(false);
   
-  // New airdrop form
-  const [newAirdrop, setNewAirdrop] = useState<Partial<Airdrop>>({
+  // Form state for new/edit airdrop
+  const [formData, setFormData] = useState({
     name: '',
-    tokenSymbol: '',
     description: '',
-    logo: 'https://cryptologos.cc/logos/avalanche-avax-logo.png?v=022',
+    category: '',
+    link: '',
     fundingAmount: 0,
-    category: 'DeFi',
-    status: 'upcoming',
-    telegramLink: '',
-    twitterLink: '',
-    website: ''
+    rewards: '',
+    timeCommitment: '',
+    workRequired: '',
+    status: 'upcoming' as 'active' | 'upcoming' | 'ended'
   });
-  
-  // Edit states
-  const [isAddingAirdrop, setIsAddingAirdrop] = useState(false);
-  const [editingAirdropId, setEditingAirdropId] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
-  // Check if user is logged in
+  // Initialize form data when editing an airdrop
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      toast.error('Please log in to access the dashboard.');
-      return;
+    if (currentAirdrop) {
+      setFormData({
+        name: currentAirdrop.name,
+        description: currentAirdrop.description,
+        category: currentAirdrop.category,
+        link: currentAirdrop.link,
+        fundingAmount: currentAirdrop.fundingAmount,
+        rewards: currentAirdrop.rewards,
+        timeCommitment: currentAirdrop.timeCommitment,
+        workRequired: currentAirdrop.workRequired,
+        status: currentAirdrop.status
+      });
     }
-    
-    // Get user's airdrops from localStorage
-    const storedAirdrops = localStorage.getItem('userAirdrops');
-    const allAirdrops = storedAirdrops ? JSON.parse(storedAirdrops) : {};
-    
-    // Get this user's airdrops
-    const myAirdrops = allAirdrops[user.id] || [];
-    setUserAirdrops(myAirdrops);
-  }, [user, navigate]);
+  }, [currentAirdrop]);
 
-  // Cancel all edit states
-  const cancelAllEdits = () => {
-    setIsAddingAirdrop(false);
-    setEditingAirdropId(null);
-    setShowDeleteConfirm(null);
-    
-    // Reset form
-    setNewAirdrop({
-      name: '',
-      tokenSymbol: '',
-      description: '',
-      logo: 'https://cryptologos.cc/logos/avalanche-avax-logo.png?v=022',
-      fundingAmount: 0,
-      category: 'DeFi',
-      status: 'upcoming',
-      telegramLink: '',
-      twitterLink: '',
-      website: ''
-    });
-  };
-
-  // Add new airdrop
+  // Handle adding a new airdrop
   const handleAddAirdrop = () => {
-    if (!user) {
-      toast.error('Please log in to submit airdrops');
-      return;
-    }
-
-    // Validate required fields
-    if (!newAirdrop.name || !newAirdrop.tokenSymbol || !newAirdrop.description) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    
-    const newAirdropEntry: Airdrop = {
-      id: `user-${user.id}-${Date.now()}`,
-      name: newAirdrop.name || 'Untitled Airdrop',
-      tokenSymbol: newAirdrop.tokenSymbol || 'TOKEN',
-      logo: newAirdrop.logo || 'https://cryptologos.cc/logos/avalanche-avax-logo.png?v=022',
-      description: newAirdrop.description || 'No description provided',
-      fundingAmount: newAirdrop.fundingAmount || 1000000,
-      listingDate: new Date().toISOString().split('T')[0],
-      telegramLink: newAirdrop.telegramLink || 'https://t.me/example',
-      twitterLink: newAirdrop.twitterLink || 'https://twitter.com/example',
-      website: newAirdrop.website || 'https://example.com',
-      category: newAirdrop.category || 'DeFi',
-      requirements: ['Complete registration', 'Connect wallet'],
-      estimatedValue: '$100-$1,000',
-      status: newAirdrop.status || 'upcoming',
-      popularity: 50,
-      submittedBy: user.id
+    const newAirdrop: Airdrop = {
+      id: Math.random().toString(36).substring(2, 9),
+      ...formData,
+      completed: false,
+      pinned: false,
+      userId: user?.id || ''
     };
     
-    // Save to user's airdrops
-    const updatedAirdrops = [...userAirdrops, newAirdropEntry];
-    setUserAirdrops(updatedAirdrops);
-    
-    // Save to localStorage
-    const storedAirdrops = localStorage.getItem('userAirdrops');
-    const allAirdrops = storedAirdrops ? JSON.parse(storedAirdrops) : {};
-    allAirdrops[user.id] = updatedAirdrops;
-    localStorage.setItem('userAirdrops', JSON.stringify(allAirdrops));
-    
-    // Add to global airdrops for display in main airdrops list
-    const globalAirdrops = [...airdrops];
-    globalAirdrops.push(newAirdropEntry);
-    localStorage.setItem('globalAirdrops', JSON.stringify(globalAirdrops));
-    
-    toast.success('Airdrop submitted successfully!');
-    setIsAddingAirdrop(false);
-    
-    // Reset form
-    setNewAirdrop({
-      name: '',
-      tokenSymbol: '',
-      description: '',
-      logo: 'https://cryptologos.cc/logos/avalanche-avax-logo.png?v=022',
-      fundingAmount: 0,
-      category: 'DeFi',
-      status: 'upcoming',
-      telegramLink: '',
-      twitterLink: '',
-      website: ''
-    });
+    setUserAirdrops([...userAirdrops, newAirdrop]);
+    setIsAddDialogOpen(false);
+    resetForm();
+    toast.success('Airdrop added successfully!');
   };
-  
-  // Update airdrop
-  const handleUpdateAirdrop = (id: string) => {
-    if (!user) {
-      toast.error('Please log in to update airdrops');
-      return;
-    }
+
+  // Handle updating an airdrop
+  const handleUpdateAirdrop = () => {
+    if (!currentAirdrop) return;
     
-    // Validate required fields
-    if (!newAirdrop.name || !newAirdrop.tokenSymbol || !newAirdrop.description) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    
-    const updatedAirdrops = userAirdrops.map(airdrop => {
-      if (airdrop.id === id) {
-        return {
-          ...airdrop,
-          name: newAirdrop.name || airdrop.name,
-          tokenSymbol: newAirdrop.tokenSymbol || airdrop.tokenSymbol,
-          logo: newAirdrop.logo || airdrop.logo,
-          description: newAirdrop.description || airdrop.description,
-          fundingAmount: newAirdrop.fundingAmount || airdrop.fundingAmount,
-          category: newAirdrop.category || airdrop.category,
-          status: newAirdrop.status || airdrop.status,
-          telegramLink: newAirdrop.telegramLink || airdrop.telegramLink,
-          twitterLink: newAirdrop.twitterLink || airdrop.twitterLink,
-          website: newAirdrop.website || airdrop.website
-        };
-      }
-      return airdrop;
-    });
+    const updatedAirdrops = userAirdrops.map(airdrop => 
+      airdrop.id === currentAirdrop.id 
+        ? { ...airdrop, ...formData } 
+        : airdrop
+    );
     
     setUserAirdrops(updatedAirdrops);
-    
-    // Save to localStorage
-    const storedAirdrops = localStorage.getItem('userAirdrops');
-    const allAirdrops = storedAirdrops ? JSON.parse(storedAirdrops) : {};
-    allAirdrops[user.id] = updatedAirdrops;
-    localStorage.setItem('userAirdrops', JSON.stringify(allAirdrops));
-    
-    // Update global airdrops
-    const storedGlobalAirdrops = localStorage.getItem('globalAirdrops');
-    if (storedGlobalAirdrops) {
-      const globalAirdrops = JSON.parse(storedGlobalAirdrops);
-      const updatedGlobalAirdrops = globalAirdrops.map((airdrop: Airdrop) => {
-        if (airdrop.id === id) {
-          return {
-            ...airdrop,
-            name: newAirdrop.name || airdrop.name,
-            tokenSymbol: newAirdrop.tokenSymbol || airdrop.tokenSymbol,
-            logo: newAirdrop.logo || airdrop.logo,
-            description: newAirdrop.description || airdrop.description,
-            fundingAmount: newAirdrop.fundingAmount || airdrop.fundingAmount,
-            category: newAirdrop.category || airdrop.category,
-            status: newAirdrop.status || airdrop.status,
-            telegramLink: newAirdrop.telegramLink || airdrop.telegramLink,
-            twitterLink: newAirdrop.twitterLink || airdrop.twitterLink,
-            website: newAirdrop.website || airdrop.website
-          };
-        }
-        return airdrop;
-      });
-      localStorage.setItem('globalAirdrops', JSON.stringify(updatedGlobalAirdrops));
-    }
-    
+    setIsEditDialogOpen(false);
+    resetForm();
     toast.success('Airdrop updated successfully!');
-    setEditingAirdropId(null);
-    
-    // Reset form
-    setNewAirdrop({
-      name: '',
-      tokenSymbol: '',
-      description: '',
-      logo: 'https://cryptologos.cc/logos/avalanche-avax-logo.png?v=022',
-      fundingAmount: 0,
-      category: 'DeFi',
-      status: 'upcoming',
-      telegramLink: '',
-      twitterLink: '',
-      website: ''
-    });
   };
-  
-  // Delete airdrop
+
+  // Handle deleting an airdrop
   const handleDeleteAirdrop = (id: string) => {
-    if (!user) {
-      toast.error('Please log in to delete airdrops');
-      return;
-    }
-    
     const updatedAirdrops = userAirdrops.filter(airdrop => airdrop.id !== id);
     setUserAirdrops(updatedAirdrops);
-    
-    // Save to localStorage
-    const storedAirdrops = localStorage.getItem('userAirdrops');
-    const allAirdrops = storedAirdrops ? JSON.parse(storedAirdrops) : {};
-    allAirdrops[user.id] = updatedAirdrops;
-    localStorage.setItem('userAirdrops', JSON.stringify(allAirdrops));
-    
-    // Update global airdrops
-    const storedGlobalAirdrops = localStorage.getItem('globalAirdrops');
-    if (storedGlobalAirdrops) {
-      const globalAirdrops = JSON.parse(storedGlobalAirdrops);
-      const updatedGlobalAirdrops = globalAirdrops.filter((airdrop: Airdrop) => airdrop.id !== id);
-      localStorage.setItem('globalAirdrops', JSON.stringify(updatedGlobalAirdrops));
-    }
-    
     toast.success('Airdrop deleted successfully!');
-    setShowDeleteConfirm(null);
   };
-  
-  // Editing an airdrop
-  const startEditingAirdrop = (airdrop: Airdrop) => {
-    setEditingAirdropId(airdrop.id);
-    setNewAirdrop({
-      name: airdrop.name,
-      tokenSymbol: airdrop.tokenSymbol,
-      description: airdrop.description,
-      logo: airdrop.logo,
-      fundingAmount: airdrop.fundingAmount,
-      category: airdrop.category,
-      status: airdrop.status,
-      telegramLink: airdrop.telegramLink,
-      twitterLink: airdrop.twitterLink,
-      website: airdrop.website
+
+  // Toggle completion status
+  const toggleCompletion = (id: string) => {
+    const updatedAirdrops = userAirdrops.map(airdrop => 
+      airdrop.id === id 
+        ? { ...airdrop, completed: !airdrop.completed } 
+        : airdrop
+    );
+    
+    setUserAirdrops(updatedAirdrops);
+    toast.success('Airdrop status updated!');
+  };
+
+  // Toggle pin status
+  const togglePin = (id: string) => {
+    const updatedAirdrops = userAirdrops.map(airdrop => 
+      airdrop.id === id 
+        ? { ...airdrop, pinned: !airdrop.pinned } 
+        : airdrop
+    );
+    
+    setUserAirdrops(updatedAirdrops);
+    toast.success(updatedAirdrops.find(a => a.id === id)?.pinned ? 'Airdrop pinned!' : 'Airdrop unpinned!');
+  };
+
+  // Reset form data
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      category: '',
+      link: '',
+      fundingAmount: 0,
+      rewards: '',
+      timeCommitment: '',
+      workRequired: '',
+      status: 'upcoming'
     });
+    setCurrentAirdrop(null);
   };
 
-  // Format date helper
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  };
-
-  // Status badge color helper
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'upcoming':
-        return 'bg-blue-500 text-white';
-      case 'active':
-        return 'bg-crypto-green text-crypto-black';
-      case 'ended':
-        return 'bg-gray-500 text-white';
-      default:
-        return 'bg-gray-500 text-white';
+  // Add new category
+  const handleAddCategory = () => {
+    if (!newCategory.trim()) {
+      toast.error('Please enter a category name');
+      return;
     }
+    
+    // In a real app, you would save this to your backend
+    toast.success(`New category "${newCategory}" added!`);
+    setIsNewCategoryDialogOpen(false);
+    setFormData({...formData, category: newCategory});
+    setNewCategory('');
   };
+
+  // Filter airdrops based on active tab
+  const filteredAirdrops = userAirdrops.filter(airdrop => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'completed') return airdrop.completed;
+    if (activeTab === 'pinned') return airdrop.pinned;
+    if (activeTab === 'active') return airdrop.status === 'active';
+    if (activeTab === 'upcoming') return airdrop.status === 'upcoming';
+    if (activeTab === 'ended') return airdrop.status === 'ended';
+    return true;
+  })
+  // Sort - pinned first, then by name
+  .sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <div className="min-h-screen bg-crypto-black">
       <Navbar />
       
-      {/* Hero Section */}
-      <section className="pt-24 pb-8 px-4 md:pt-32 md:pb-16">
-        <div className="container mx-auto">
-          <div className="flex flex-col items-center text-center max-w-3xl mx-auto animate-fadeIn">
-            <div className="p-3 bg-crypto-gray/60 rounded-full mb-4">
-              <User className="h-12 w-12 text-crypto-green" />
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
-              <span className="text-white">My </span>
-              <span className="text-crypto-green">Dashboard</span>
-            </h1>
-            <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-              Manage your submitted airdrops and see their status
-            </p>
-          </div>
-        </div>
-      </section>
-      
-      {/* Dashboard Section */}
-      <section className="py-6 px-4">
-        <div className="container mx-auto">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">My Submitted Airdrops</h2>
-            <Button
-              onClick={() => {
-                setIsAddingAirdrop(true);
-                cancelAllEdits();
-              }}
-              className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Submit New Airdrop
-            </Button>
-          </div>
-          
-          {/* Add Airdrop Form */}
-          {isAddingAirdrop && (
-            <div className="glass-panel rounded-xl p-6 mb-6">
-              <h3 className="text-lg font-semibold mb-4">Submit New Airdrop</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">Airdrop Name *</label>
-                  <Input
-                    type="text"
-                    placeholder="Airdrop Name"
-                    value={newAirdrop.name || ''}
-                    onChange={(e) => setNewAirdrop({ ...newAirdrop, name: e.target.value })}
-                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                  />
+      <div className="container mx-auto pt-24 pb-10 px-4">
+        <div className="flex flex-col lg:flex-row items-start gap-8">
+          {/* User Profile Section */}
+          <div className="w-full lg:w-1/4 glass-card rounded-xl p-6 mb-6 lg:mb-0">
+            <div className="flex flex-col items-center">
+              {user?.avatar ? (
+                <img 
+                  src={user.avatar} 
+                  alt={user?.username || 'User'} 
+                  className="w-24 h-24 rounded-full border-4 border-crypto-green mb-4 object-cover"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-crypto-gray flex items-center justify-center mb-4 text-2xl font-bold text-white border-4 border-crypto-green">
+                  {user?.username?.charAt(0).toUpperCase() || 'U'}
                 </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">Token Symbol *</label>
-                  <Input
-                    type="text"
-                    placeholder="Token Symbol"
-                    value={newAirdrop.tokenSymbol || ''}
-                    onChange={(e) => setNewAirdrop({ ...newAirdrop, tokenSymbol: e.target.value })}
-                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                  />
+              )}
+              
+              <h2 className="text-xl font-bold mb-1">
+                {user?.username || 'User'}
+              </h2>
+              <p className="text-gray-400 text-sm mb-4">
+                {user?.email || 'user@example.com'}
+              </p>
+              
+              <div className="w-full border-t border-crypto-lightGray/20 pt-4 mt-2">
+                <div className="flex justify-between mb-3">
+                  <span className="text-gray-400">Airdrops</span>
+                  <span className="font-semibold">{userAirdrops.length}</span>
                 </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">Logo URL</label>
-                  <Input
-                    type="text"
-                    placeholder="Logo URL"
-                    value={newAirdrop.logo || ''}
-                    onChange={(e) => setNewAirdrop({ ...newAirdrop, logo: e.target.value })}
-                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                  />
+                <div className="flex justify-between mb-3">
+                  <span className="text-gray-400">Completed</span>
+                  <span className="font-semibold">{userAirdrops.filter(a => a.completed).length}</span>
                 </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">Funding Amount ($)</label>
-                  <Input
-                    type="number"
-                    placeholder="Funding Amount"
-                    value={newAirdrop.fundingAmount || 0}
-                    onChange={(e) => setNewAirdrop({ ...newAirdrop, fundingAmount: Number(e.target.value) })}
-                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">Category</label>
-                  <select
-                    value={newAirdrop.category || 'DeFi'}
-                    onChange={(e) => setNewAirdrop({ ...newAirdrop, category: e.target.value as 'DeFi' | 'Layer 1' | 'Layer 2' | 'ZK Rollup' | 'Modular Blockchain' | 'Smart Contract Platform' })}
-                    className="w-full rounded-md border border-crypto-lightGray/30 bg-crypto-gray text-gray-300 focus:border-crypto-green focus:ring-crypto-green/20 h-10 px-3"
-                  >
-                    <option value="DeFi">DeFi</option>
-                    <option value="Layer 1">Layer 1</option>
-                    <option value="Layer 2">Layer 2</option>
-                    <option value="ZK Rollup">ZK Rollup</option>
-                    <option value="Modular Blockchain">Modular Blockchain</option>
-                    <option value="Smart Contract Platform">Smart Contract Platform</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">Status</label>
-                  <select
-                    value={newAirdrop.status || 'upcoming'}
-                    onChange={(e) => setNewAirdrop({ ...newAirdrop, status: e.target.value as 'upcoming' | 'active' | 'ended' })}
-                    className="w-full rounded-md border border-crypto-lightGray/30 bg-crypto-gray text-gray-300 focus:border-crypto-green focus:ring-crypto-green/20 h-10 px-3"
-                  >
-                    <option value="upcoming">Upcoming</option>
-                    <option value="active">Active</option>
-                    <option value="ended">Ended</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">Website URL</label>
-                  <Input
-                    type="text"
-                    placeholder="Website URL"
-                    value={newAirdrop.website || ''}
-                    onChange={(e) => setNewAirdrop({ ...newAirdrop, website: e.target.value })}
-                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">Twitter URL</label>
-                  <Input
-                    type="text"
-                    placeholder="Twitter URL"
-                    value={newAirdrop.twitterLink || ''}
-                    onChange={(e) => setNewAirdrop({ ...newAirdrop, twitterLink: e.target.value })}
-                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">Telegram URL</label>
-                  <Input
-                    type="text"
-                    placeholder="Telegram URL"
-                    value={newAirdrop.telegramLink || ''}
-                    onChange={(e) => setNewAirdrop({ ...newAirdrop, telegramLink: e.target.value })}
-                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-sm text-gray-400 mb-1 block">Description *</label>
-                  <Textarea
-                    placeholder="Airdrop Description"
-                    value={newAirdrop.description || ''}
-                    onChange={(e) => setNewAirdrop({ ...newAirdrop, description: e.target.value })}
-                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                  />
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Pinned</span>
+                  <span className="font-semibold">{userAirdrops.filter(a => a.pinned).length}</span>
                 </div>
               </div>
-              <div className="flex justify-end mt-4 gap-2">
-                <Button 
-                  variant="ghost" 
-                  onClick={cancelAllEdits}
-                  className="text-gray-300 hover:bg-crypto-lightGray"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleAddAirdrop}
-                  className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Submit Airdrop
-                </Button>
-              </div>
             </div>
-          )}
+          </div>
           
-          {/* Airdrops List */}
-          {userAirdrops.length === 0 ? (
-            <div className="glass-panel rounded-xl p-8 text-center">
-              <AlertTriangle className="h-12 w-12 text-crypto-green mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No Airdrops Found</h3>
-              <p className="text-gray-400 mb-6">You haven't submitted any airdrops yet. Start by adding your first airdrop.</p>
-              <Button
-                onClick={() => {
-                  setIsAddingAirdrop(true);
-                  cancelAllEdits();
-                }}
-                className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Submit New Airdrop
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {userAirdrops.map((airdrop) => (
-                <div key={airdrop.id} className="glass-panel rounded-xl p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center space-x-3">
-                      <img 
-                        src={airdrop.logo} 
-                        alt={airdrop.name} 
-                        className="w-10 h-10 rounded-full object-cover bg-white p-1"
+          {/* Main Content Section */}
+          <div className="w-full lg:w-3/4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+              <h1 className="text-3xl font-bold mb-4 md:mb-0">My Airdrop Dashboard</h1>
+              
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Airdrop
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[550px] bg-crypto-gray border-crypto-lightGray/30">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl">Add New Airdrop</DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <label htmlFor="name" className="text-sm font-medium">Name</label>
+                      <Input 
+                        id="name" 
+                        value={formData.name} 
+                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                        className="bg-crypto-black border-crypto-lightGray/30"
                       />
-                      <div>
-                        <h3 className="font-bold text-lg">{airdrop.name}</h3>
-                        <p className="text-sm text-gray-400">{airdrop.tokenSymbol}</p>
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <label htmlFor="description" className="text-sm font-medium">Description</label>
+                      <Textarea 
+                        id="description" 
+                        value={formData.description} 
+                        onChange={(e) => setFormData({...formData, description: e.target.value})}
+                        className="bg-crypto-black border-crypto-lightGray/30 min-h-[100px]"
+                      />
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <label htmlFor="category" className="text-sm font-medium">Category</label>
+                      <div className="flex gap-2">
+                        <Select 
+                          value={formData.category} 
+                          onValueChange={(value) => setFormData({...formData, category: value})}
+                        >
+                          <SelectTrigger className="bg-crypto-black border-crypto-lightGray/30 w-full">
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-crypto-black border-crypto-lightGray/30">
+                            {predefinedCategories.map((category) => (
+                              <SelectItem key={category} value={category}>{category}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        <Dialog open={isNewCategoryDialogOpen} onOpenChange={setIsNewCategoryDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" className="border-crypto-lightGray/30">
+                              <PlusCircle className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-[400px] bg-crypto-gray border-crypto-lightGray/30">
+                            <DialogHeader>
+                              <DialogTitle>Add New Category</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                              <Input 
+                                placeholder="Enter new category" 
+                                value={newCategory} 
+                                onChange={(e) => setNewCategory(e.target.value)}
+                                className="bg-crypto-black border-crypto-lightGray/30"
+                              />
+                              <Button onClick={handleAddCategory} className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
+                                Add Category
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     </div>
-                    <Badge className={`${getStatusColor(airdrop.status)} capitalize`}>
-                      {airdrop.status}
-                    </Badge>
+                    
+                    <div className="grid gap-2">
+                      <label htmlFor="link" className="text-sm font-medium">Link</label>
+                      <Input 
+                        id="link" 
+                        value={formData.link} 
+                        onChange={(e) => setFormData({...formData, link: e.target.value})}
+                        className="bg-crypto-black border-crypto-lightGray/30"
+                      />
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <label htmlFor="fundingAmount" className="text-sm font-medium">Funding Amount ($)</label>
+                      <Input 
+                        id="fundingAmount" 
+                        type="number"
+                        value={formData.fundingAmount.toString()} 
+                        onChange={(e) => setFormData({...formData, fundingAmount: parseInt(e.target.value) || 0})}
+                        className="bg-crypto-black border-crypto-lightGray/30"
+                      />
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <label htmlFor="rewards" className="text-sm font-medium">Rewards</label>
+                      <Input 
+                        id="rewards" 
+                        value={formData.rewards} 
+                        onChange={(e) => setFormData({...formData, rewards: e.target.value})}
+                        className="bg-crypto-black border-crypto-lightGray/30"
+                      />
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <label htmlFor="timeCommitment" className="text-sm font-medium">Time Commitment</label>
+                      <Input 
+                        id="timeCommitment" 
+                        value={formData.timeCommitment} 
+                        onChange={(e) => setFormData({...formData, timeCommitment: e.target.value})}
+                        className="bg-crypto-black border-crypto-lightGray/30"
+                      />
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <label htmlFor="workRequired" className="text-sm font-medium">Work Required</label>
+                      <Input 
+                        id="workRequired" 
+                        value={formData.workRequired} 
+                        onChange={(e) => setFormData({...formData, workRequired: e.target.value})}
+                        className="bg-crypto-black border-crypto-lightGray/30"
+                      />
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <label htmlFor="status" className="text-sm font-medium">Status</label>
+                      <Select 
+                        value={formData.status} 
+                        onValueChange={(value: 'active' | 'upcoming' | 'ended') => setFormData({...formData, status: value})}
+                      >
+                        <SelectTrigger className="bg-crypto-black border-crypto-lightGray/30">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-crypto-black border-crypto-lightGray/30">
+                          <SelectItem value="upcoming">Upcoming</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="ended">Ended</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   
-                  {editingAirdropId === airdrop.id ? (
-                    <>
-                      <div className="grid grid-cols-1 gap-3 mb-4">
-                        <Input
-                          type="text"
-                          placeholder="Airdrop Name"
-                          value={newAirdrop.name || ''}
-                          onChange={(e) => setNewAirdrop({ ...newAirdrop, name: e.target.value })}
-                          className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                        />
-                        <Input
-                          type="text"
-                          placeholder="Token Symbol"
-                          value={newAirdrop.tokenSymbol || ''}
-                          onChange={(e) => setNewAirdrop({ ...newAirdrop, tokenSymbol: e.target.value })}
-                          className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                        />
-                        <Input
-                          type="text"
-                          placeholder="Logo URL"
-                          value={newAirdrop.logo || ''}
-                          onChange={(e) => setNewAirdrop({ ...newAirdrop, logo: e.target.value })}
-                          className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Funding Amount"
-                          value={newAirdrop.fundingAmount || 0}
-                          onChange={(e) => setNewAirdrop({ ...newAirdrop, fundingAmount: Number(e.target.value) })}
-                          className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                        />
-                        <select
-                          value={newAirdrop.category || 'DeFi'}
-                          onChange={(e) => setNewAirdrop({ ...newAirdrop, category: e.target.value as 'DeFi' | 'Layer 1' | 'Layer 2' | 'ZK Rollup' | 'Modular Blockchain' | 'Smart Contract Platform' })}
-                          className="w-full rounded-md border border-crypto-lightGray/30 bg-crypto-gray text-gray-300 focus:border-crypto-green focus:ring-crypto-green/20 h-10 px-3"
-                        >
-                          <option value="DeFi">DeFi</option>
-                          <option value="Layer 1">Layer 1</option>
-                          <option value="Layer 2">Layer 2</option>
-                          <option value="ZK Rollup">ZK Rollup</option>
-                          <option value="Modular Blockchain">Modular Blockchain</option>
-                          <option value="Smart Contract Platform">Smart Contract Platform</option>
-                        </select>
-                        <select
-                          value={newAirdrop.status || 'upcoming'}
-                          onChange={(e) => setNewAirdrop({ ...newAirdrop, status: e.target.value as 'upcoming' | 'active' | 'ended' })}
-                          className="w-full rounded-md border border-crypto-lightGray/30 bg-crypto-gray text-gray-300 focus:border-crypto-green focus:ring-crypto-green/20 h-10 px-3"
-                        >
-                          <option value="upcoming">Upcoming</option>
-                          <option value="active">Active</option>
-                          <option value="ended">Ended</option>
-                        </select>
-                        <Textarea
-                          placeholder="Airdrop Description"
-                          value={newAirdrop.description || ''}
-                          onChange={(e) => setNewAirdrop({ ...newAirdrop, description: e.target.value })}
-                          className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                        />
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          onClick={cancelAllEdits}
-                          className="text-gray-300 hover:bg-crypto-lightGray"
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          onClick={() => handleUpdateAirdrop(airdrop.id)}
-                          className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
-                        >
-                          <Save className="w-4 h-4 mr-2" />
-                          Update
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-gray-300 mb-3 line-clamp-2">
-                        {airdrop.description}
-                      </p>
-                      
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="bg-crypto-lightGray/30 rounded-lg p-3">
-                          <p className="text-xs text-gray-400 mb-1">Funding</p>
-                          <p className="font-medium text-crypto-green">${airdrop.fundingAmount.toLocaleString()}</p>
-                        </div>
-                        <div className="bg-crypto-lightGray/30 rounded-lg p-3">
-                          <p className="text-xs text-gray-400 mb-1">Listed</p>
-                          <div className="flex items-center">
-                            <Calendar className="w-3 h-3 mr-1 text-crypto-green" />
-                            <p className="font-medium text-sm">{formatDate(airdrop.listingDate)}</p>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="border-crypto-lightGray/30">
+                      Cancel
+                    </Button>
+                    <Button onClick={handleAddAirdrop} className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
+                      Add Airdrop
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+            
+            {/* Tabs for filtering */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+              <TabsList className="bg-crypto-gray">
+                <TabsTrigger value="all" className="data-[state=active]:bg-crypto-green data-[state=active]:text-crypto-black">
+                  All
+                </TabsTrigger>
+                <TabsTrigger value="active" className="data-[state=active]:bg-crypto-green data-[state=active]:text-crypto-black">
+                  Active
+                </TabsTrigger>
+                <TabsTrigger value="upcoming" className="data-[state=active]:bg-crypto-green data-[state=active]:text-crypto-black">
+                  Upcoming
+                </TabsTrigger>
+                <TabsTrigger value="completed" className="data-[state=active]:bg-crypto-green data-[state=active]:text-crypto-black">
+                  Completed
+                </TabsTrigger>
+                <TabsTrigger value="pinned" className="data-[state=active]:bg-crypto-green data-[state=active]:text-crypto-black">
+                  Pinned
+                </TabsTrigger>
+              </TabsList>
+              
+              {/* Tab content */}
+              <TabsContent value={activeTab} className="mt-6">
+                {filteredAirdrops.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredAirdrops.map((airdrop) => (
+                      <Card key={airdrop.id} className={`bg-crypto-gray border-crypto-lightGray/30 hover:border-crypto-green/50 transition-all ${airdrop.pinned ? 'border-l-4 border-l-yellow-500' : ''}`}>
+                        <CardHeader className="pb-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <CardTitle className="text-xl flex items-center">
+                                {airdrop.name}
+                                {airdrop.completed && (
+                                  <CheckCircle className="ml-2 h-5 w-5 text-green-500" />
+                                )}
+                              </CardTitle>
+                              <CardDescription className="text-gray-400 mt-1">
+                                {airdrop.category}
+                              </CardDescription>
+                            </div>
+                            <Badge className={`${getStatusColor(airdrop.status)}`}>
+                              {airdrop.status.charAt(0).toUpperCase() + airdrop.status.slice(1)}
+                            </Badge>
                           </div>
-                        </div>
-                      </div>
+                        </CardHeader>
+                        <CardContent className="py-2">
+                          <p className="text-sm text-gray-300 mb-3">
+                            {airdrop.description}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-xs text-gray-400">Funding</p>
+                              <p className="font-medium">${airdrop.fundingAmount.toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Time Required</p>
+                              <p className="font-medium">{airdrop.timeCommitment}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Rewards</p>
+                              <p className="font-medium">{airdrop.rewards}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Work Required</p>
+                              <p className="font-medium">{airdrop.workRequired}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                        <CardFooter className="pt-2 flex justify-between">
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-xs border-crypto-lightGray/30 h-8"
+                              onClick={() => {
+                                setCurrentAirdrop(airdrop);
+                                setIsEditDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-xs border-crypto-lightGray/30 h-8 hover:bg-red-900/20 hover:text-red-400 hover:border-red-900/50"
+                              onClick={() => handleDeleteAirdrop(airdrop.id)}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Delete
+                            </Button>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className={`text-xs h-8 ${airdrop.completed ? 'text-green-500' : 'text-gray-400'}`}
+                              onClick={() => toggleCompletion(airdrop.id)}
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              {airdrop.completed ? 'Completed' : 'Complete'}
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className={`text-xs h-8 ${airdrop.pinned ? 'text-yellow-500' : 'text-gray-400'}`}
+                              onClick={() => togglePin(airdrop.id)}
+                            >
+                              <Pin className="h-3 w-3 mr-1" />
+                              {airdrop.pinned ? 'Pinned' : 'Pin'}
+                            </Button>
+                          </div>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="glass-panel rounded-xl p-10 text-center">
+                    <h3 className="text-xl font-semibold mb-2">No Airdrops Found</h3>
+                    <p className="text-gray-400 mb-6">
+                      {activeTab === 'all' 
+                        ? "You haven't added any airdrops yet." 
+                        : `You don't have any ${activeTab} airdrops.`}
+                    </p>
+                    <Button 
+                      onClick={() => setIsAddDialogOpen(true)}
+                      className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Add Your First Airdrop
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+            
+            {/* Edit Airdrop Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent className="sm:max-w-[550px] bg-crypto-gray border-crypto-lightGray/30">
+                <DialogHeader>
+                  <DialogTitle className="text-xl">Edit Airdrop</DialogTitle>
+                </DialogHeader>
+                
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-name" className="text-sm font-medium">Name</label>
+                    <Input 
+                      id="edit-name" 
+                      value={formData.name} 
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="bg-crypto-black border-crypto-lightGray/30"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-description" className="text-sm font-medium">Description</label>
+                    <Textarea 
+                      id="edit-description" 
+                      value={formData.description} 
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      className="bg-crypto-black border-crypto-lightGray/30 min-h-[100px]"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-category" className="text-sm font-medium">Category</label>
+                    <div className="flex gap-2">
+                      <Select 
+                        value={formData.category} 
+                        onValueChange={(value) => setFormData({...formData, category: value})}
+                      >
+                        <SelectTrigger className="bg-crypto-black border-crypto-lightGray/30 w-full">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-crypto-black border-crypto-lightGray/30">
+                          {predefinedCategories.map((category) => (
+                            <SelectItem key={category} value={category}>{category}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       
-                      <div className="flex items-center justify-between">
-                        <div className="flex space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => startEditingAirdrop(airdrop)}
-                            disabled={editingAirdropId !== null}
-                            className="text-gray-300 hover:text-crypto-green"
-                          >
-                            <Edit className="w-4 h-4" />
+                      <Dialog open={isNewCategoryDialogOpen} onOpenChange={setIsNewCategoryDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" className="border-crypto-lightGray/30">
+                            <PlusCircle className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => setShowDeleteConfirm(airdrop.id)}
-                            disabled={showDeleteConfirm !== null}
-                            className="text-gray-300 hover:text-red-500"
-                          >
-                            <Trash className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        
-                        <Badge className="bg-crypto-lightGray/50">{airdrop.category}</Badge>
-                      </div>
-                    </>
-                  )}
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[400px] bg-crypto-gray border-crypto-lightGray/30">
+                          <DialogHeader>
+                            <DialogTitle>Add New Category</DialogTitle>
+                          </DialogHeader>
+                          <div className="grid gap-4 py-4">
+                            <Input 
+                              placeholder="Enter new category" 
+                              value={newCategory} 
+                              onChange={(e) => setNewCategory(e.target.value)}
+                              className="bg-crypto-black border-crypto-lightGray/30"
+                            />
+                            <Button onClick={handleAddCategory} className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
+                              Add Category
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+                  
+                  {/* Repeat other form fields */}
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-link" className="text-sm font-medium">Link</label>
+                    <Input 
+                      id="edit-link" 
+                      value={formData.link} 
+                      onChange={(e) => setFormData({...formData, link: e.target.value})}
+                      className="bg-crypto-black border-crypto-lightGray/30"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-fundingAmount" className="text-sm font-medium">Funding Amount ($)</label>
+                    <Input 
+                      id="edit-fundingAmount" 
+                      type="number"
+                      value={formData.fundingAmount.toString()} 
+                      onChange={(e) => setFormData({...formData, fundingAmount: parseInt(e.target.value) || 0})}
+                      className="bg-crypto-black border-crypto-lightGray/30"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-rewards" className="text-sm font-medium">Rewards</label>
+                    <Input 
+                      id="edit-rewards" 
+                      value={formData.rewards} 
+                      onChange={(e) => setFormData({...formData, rewards: e.target.value})}
+                      className="bg-crypto-black border-crypto-lightGray/30"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-timeCommitment" className="text-sm font-medium">Time Commitment</label>
+                    <Input 
+                      id="edit-timeCommitment" 
+                      value={formData.timeCommitment} 
+                      onChange={(e) => setFormData({...formData, timeCommitment: e.target.value})}
+                      className="bg-crypto-black border-crypto-lightGray/30"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-workRequired" className="text-sm font-medium">Work Required</label>
+                    <Input 
+                      id="edit-workRequired" 
+                      value={formData.workRequired} 
+                      onChange={(e) => setFormData({...formData, workRequired: e.target.value})}
+                      className="bg-crypto-black border-crypto-lightGray/30"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-status" className="text-sm font-medium">Status</label>
+                    <Select 
+                      value={formData.status} 
+                      onValueChange={(value: 'active' | 'upcoming' | 'ended') => setFormData({...formData, status: value})}
+                    >
+                      <SelectTrigger className="bg-crypto-black border-crypto-lightGray/30">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-crypto-black border-crypto-lightGray/30">
+                        <SelectItem value="upcoming">Upcoming</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="ended">Ended</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+                
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => {
+                    setIsEditDialogOpen(false);
+                    resetForm();
+                  }} className="border-crypto-lightGray/30">
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUpdateAirdrop} className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
+                    Save Changes
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
-      </section>
-      
-      {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && (
-        <Dialog open={!!showDeleteConfirm} onOpenChange={() => setShowDeleteConfirm(null)}>
-          <DialogContent className="bg-crypto-gray border-crypto-lightGray/30">
-            <DialogHeader>
-              <DialogTitle className="text-white">Confirm Deletion</DialogTitle>
-              <DialogDescription className="text-gray-400">
-                Are you sure you want to delete this airdrop? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button 
-                variant="ghost" 
-                onClick={() => setShowDeleteConfirm(null)}
-                className="text-gray-300 hover:bg-crypto-lightGray"
-              >
-                Cancel
-              </Button>
-              <Button 
-                variant="destructive" 
-                onClick={() => handleDeleteAirdrop(showDeleteConfirm)}
-                className="bg-red-500 hover:bg-red-600"
-              >
-                <Trash className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      </div>
     </div>
   );
+};
+
+// Helper function to get status color for badges
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'active':
+      return 'bg-green-500/20 text-green-400 border-green-500/30';
+    case 'upcoming':
+      return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+    case 'ended':
+      return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    default:
+      return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+  }
 };
 
 export default UserDashboard;

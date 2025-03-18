@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layers, Mail, Lock, Key, ArrowRight, AlertCircle, User } from 'lucide-react';
+import { Layers, Mail, Key, ArrowRight, AlertCircle, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/lib/auth';
@@ -17,6 +17,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [codeSent, setCodeSent] = useState(false);
+  const [isInviteCode, setIsInviteCode] = useState(false);
   
   const { 
     login, 
@@ -107,6 +108,13 @@ const Login = () => {
     setCodeSent(false);
     setVerificationCode('');
     setPendingVerificationEmail(null);
+    setIsInviteCode(false);
+  };
+
+  // Toggle between verification code and invitation code
+  const toggleCodeType = () => {
+    setIsInviteCode(!isInviteCode);
+    setVerificationCode(isInviteCode ? '' : 'ishowcryptoairdrops');
   };
 
   return (
@@ -164,24 +172,49 @@ const Login = () => {
                   ) : (
                     <>
                       <div>
-                        <p className="text-sm text-gray-400 mb-2">Enter the 6-digit verification code sent to {email}</p>
-                        <InputOTP 
-                          maxLength={6}
-                          value={verificationCode} 
-                          onChange={setVerificationCode}
-                          render={({ slots }) => (
-                            <InputOTPGroup className="gap-2 justify-center">
-                              {slots.map((slot, index) => (
-                                <InputOTPSlot 
-                                  key={index} 
-                                  {...slot} 
-                                  index={index}
-                                  className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                                />
-                              ))}
-                            </InputOTPGroup>
-                          )}
-                        />
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-sm text-gray-400">
+                            {isInviteCode 
+                              ? "Enter the special invitation code" 
+                              : `Enter the 6-digit verification code sent to ${email}`}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            onClick={toggleCodeType}
+                            className="text-crypto-green hover:text-crypto-darkGreen text-xs"
+                          >
+                            {isInviteCode ? "Use verification code" : "Use invitation code"}
+                          </Button>
+                        </div>
+                        
+                        {isInviteCode ? (
+                          <Input
+                            placeholder="Invitation code"
+                            value={verificationCode}
+                            onChange={(e) => setVerificationCode(e.target.value)}
+                            className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
+                          />
+                        ) : (
+                          <InputOTP 
+                            maxLength={6}
+                            value={verificationCode} 
+                            onChange={setVerificationCode}
+                            render={({ slots }) => (
+                              <InputOTPGroup className="gap-2 justify-center">
+                                {slots.map((slot, index) => (
+                                  <InputOTPSlot 
+                                    key={index} 
+                                    {...slot} 
+                                    index={index}
+                                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                                  />
+                                ))}
+                              </InputOTPGroup>
+                            )}
+                          />
+                        )}
                       </div>
                       
                       <div className="flex justify-between">
@@ -198,21 +231,23 @@ const Login = () => {
                           Change Email
                         </Button>
                         
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSendVerificationCode(true)}
-                          className="text-crypto-green hover:text-crypto-darkGreen"
-                        >
-                          Resend Code
-                        </Button>
+                        {!isInviteCode && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSendVerificationCode(true)}
+                            className="text-crypto-green hover:text-crypto-darkGreen"
+                          >
+                            Resend Code
+                          </Button>
+                        )}
                       </div>
                       
                       <Button
                         type="submit"
                         className="w-full h-12 bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen transition-colors group"
-                        disabled={isLoading || verificationCode.length < 6}
+                        disabled={isLoading || (!isInviteCode && verificationCode.length < 6) || (isInviteCode && !verificationCode)}
                       >
                         {isLoading ? 'Signing in...' : (
                           <>
@@ -228,7 +263,8 @@ const Login = () => {
                 <Alert className="bg-crypto-gray/80 border-crypto-green/30">
                   <AlertCircle className="h-4 w-4 text-crypto-green" />
                   <AlertDescription className="text-xs text-gray-300">
-                    For demo purposes, use verification code: <span className="text-crypto-green font-medium">123456</span>
+                    For demo: use verification code <span className="text-crypto-green font-medium">123456</span> or 
+                    invitation code <span className="text-crypto-green font-medium">ishowcryptoairdrops</span>
                   </AlertDescription>
                 </Alert>
               </form>
@@ -290,24 +326,49 @@ const Login = () => {
                       </div>
                       
                       <div>
-                        <p className="text-sm text-gray-400 mb-2">Enter the 6-digit verification code sent to {email}</p>
-                        <InputOTP 
-                          maxLength={6}
-                          value={verificationCode} 
-                          onChange={setVerificationCode}
-                          render={({ slots }) => (
-                            <InputOTPGroup className="gap-2 justify-center">
-                              {slots.map((slot, index) => (
-                                <InputOTPSlot 
-                                  key={index} 
-                                  {...slot} 
-                                  index={index}
-                                  className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                                />
-                              ))}
-                            </InputOTPGroup>
-                          )}
-                        />
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-sm text-gray-400">
+                            {isInviteCode 
+                              ? "Enter the special invitation code" 
+                              : `Enter the 6-digit verification code sent to ${email}`}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            onClick={toggleCodeType}
+                            className="text-crypto-green hover:text-crypto-darkGreen text-xs"
+                          >
+                            {isInviteCode ? "Use verification code" : "Use invitation code"}
+                          </Button>
+                        </div>
+                        
+                        {isInviteCode ? (
+                          <Input
+                            placeholder="Invitation code"
+                            value={verificationCode}
+                            onChange={(e) => setVerificationCode(e.target.value)}
+                            className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
+                          />
+                        ) : (
+                          <InputOTP 
+                            maxLength={6}
+                            value={verificationCode} 
+                            onChange={setVerificationCode}
+                            render={({ slots }) => (
+                              <InputOTPGroup className="gap-2 justify-center">
+                                {slots.map((slot, index) => (
+                                  <InputOTPSlot 
+                                    key={index} 
+                                    {...slot} 
+                                    index={index}
+                                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
+                                  />
+                                ))}
+                              </InputOTPGroup>
+                            )}
+                          />
+                        )}
                       </div>
                       
                       <div className="flex justify-between">
@@ -324,15 +385,17 @@ const Login = () => {
                           Change Email
                         </Button>
                         
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSendVerificationCode(false)}
-                          className="text-crypto-green hover:text-crypto-darkGreen"
-                        >
-                          Resend Code
-                        </Button>
+                        {!isInviteCode && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSendVerificationCode(false)}
+                            className="text-crypto-green hover:text-crypto-darkGreen"
+                          >
+                            Resend Code
+                          </Button>
+                        )}
                       </div>
                     </>
                   )}
@@ -356,7 +419,7 @@ const Login = () => {
                     <Button
                       type="submit"
                       className="w-full h-12 bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen transition-colors group"
-                      disabled={isLoading || verificationCode.length < 6}
+                      disabled={isLoading || (!isInviteCode && verificationCode.length < 6) || (isInviteCode && !verificationCode)}
                     >
                       {isLoading ? 'Registering...' : (
                         <>
@@ -371,7 +434,8 @@ const Login = () => {
                 <Alert className="bg-crypto-gray/80 border-crypto-green/30">
                   <AlertCircle className="h-4 w-4 text-crypto-green" />
                   <AlertDescription className="text-xs text-gray-300">
-                    For demo purposes, use verification code: <span className="text-crypto-green font-medium">123456</span>
+                    For demo: use verification code <span className="text-crypto-green font-medium">123456</span> or 
+                    invitation code <span className="text-crypto-green font-medium">ishowcryptoairdrops</span>
                   </AlertDescription>
                 </Alert>
               </form>

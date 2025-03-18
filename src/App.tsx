@@ -6,18 +6,23 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
+import { Suspense, lazy } from "react";
 import Index from "./pages/Index";
-import Airdrops from "./pages/Airdrops";
-import Videos from "./pages/Videos";
-import Testnets from "./pages/Testnets";
-import Tools from "./pages/Tools";
-import Login from "./pages/Login";
-import AdminDashboard from "./pages/AdminDashboard";
-import UserDashboard from "./pages/UserDashboard";
-import AboutUs from "./pages/AboutUs";
-import HowItWorks from "./pages/HowItWorks";
-import NotFound from "./pages/NotFound";
 
+// Lazy load pages to improve performance
+const Airdrops = lazy(() => import("./pages/Airdrops"));
+const AirdropRanking = lazy(() => import("./pages/AirdropRanking")); // Add the AirdropRanking page
+const Videos = lazy(() => import("./pages/Videos"));
+const Testnets = lazy(() => import("./pages/Testnets"));
+const Tools = lazy(() => import("./pages/Tools"));
+const Login = lazy(() => import("./pages/Login"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const UserDashboard = lazy(() => import("./pages/UserDashboard"));
+const AboutUs = lazy(() => import("./pages/AboutUs"));
+const HowItWorks = lazy(() => import("./pages/HowItWorks"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+// Create a new QueryClient instance for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -34,7 +39,14 @@ const LoadingSpinner = () => (
   </div>
 );
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+// Wrap component with Suspense for lazy loading
+const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<LoadingSpinner />}>
+    {children}
+  </Suspense>
+);
+
+const AuthenticatedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
   
   if (isLoading) {
@@ -65,31 +77,52 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<Index />} />
-    <Route path="/airdrops" element={<Airdrops />} />
-    <Route path="/videos" element={<Videos />} />
-    <Route path="/testnets" element={<ProtectedRoute><Testnets /></ProtectedRoute>} />
-    <Route path="/tools" element={<Tools />} />
-    <Route path="/login" element={<Login />} />
-    <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-    <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-    <Route path="/about" element={<AboutUs />} />
-    <Route path="/how-it-works" element={<HowItWorks />} />
-    <Route path="*" element={<NotFound />} />
+    <Route path="/airdrops" element={<SuspenseWrapper><Airdrops /></SuspenseWrapper>} />
+    <Route path="/airdrops-ranking" element={<SuspenseWrapper><AirdropRanking /></SuspenseWrapper>} /> {/* Add airdrops-ranking route */}
+    <Route path="/videos" element={<SuspenseWrapper><Videos /></SuspenseWrapper>} />
+    <Route path="/testnets" element={
+      <SuspenseWrapper>
+        <AuthenticatedRoute>
+          <Testnets />
+        </AuthenticatedRoute>
+      </SuspenseWrapper>
+    } />
+    <Route path="/tools" element={<SuspenseWrapper><Tools /></SuspenseWrapper>} />
+    <Route path="/login" element={<SuspenseWrapper><Login /></SuspenseWrapper>} />
+    <Route path="/dashboard" element={
+      <SuspenseWrapper>
+        <AuthenticatedRoute>
+          <UserDashboard />
+        </AuthenticatedRoute>
+      </SuspenseWrapper>
+    } />
+    <Route path="/admin" element={
+      <SuspenseWrapper>
+        <AdminRoute>
+          <AdminDashboard />
+        </AdminRoute>
+      </SuspenseWrapper>
+    } />
+    <Route path="/about" element={<SuspenseWrapper><AboutUs /></SuspenseWrapper>} />
+    <Route path="/how-it-works" element={<SuspenseWrapper><HowItWorks /></SuspenseWrapper>} />
+    <Route path="*" element={<SuspenseWrapper><NotFound /></SuspenseWrapper>} />
   </Routes>
 );
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner position="top-right" />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <Toaster />
+            <Sonner position="top-right" />
+            <AppRoutes />
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
+  );
+};
 
 export default App;

@@ -39,6 +39,8 @@ const adminUser: User = {
 
 // Valid invite/verification code for demo
 const VALID_VERIFICATION_CODE = '123456';
+// Special invitation code
+const SPECIAL_INVITATION_CODE = 'ishowcryptoairdrops';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -90,8 +92,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // Validate verification code
-      if (code !== VALID_VERIFICATION_CODE) {
+      // Validate verification code or special invitation code
+      if (code !== VALID_VERIFICATION_CODE && code !== SPECIAL_INVITATION_CODE) {
         throw new Error('Invalid verification code');
       }
       
@@ -104,12 +106,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('User with this email already exists');
       }
       
+      // Check if special admin email
+      const isAdminEmail = email === adminUser.email;
+      
       // Create a new user
       const newUser: User = {
         id: Math.random().toString(36).substring(2, 9),
         email,
         username,
-        role: 'user',
+        role: isAdminEmail ? 'admin' : 'user',
         ownedAirdrops: [],
       };
       
@@ -144,8 +149,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('Verification code required');
       }
       
-      // Validate verification code
-      if (code !== VALID_VERIFICATION_CODE) {
+      // Validate verification code or special invitation code
+      if (code !== VALID_VERIFICATION_CODE && code !== SPECIAL_INVITATION_CODE) {
         throw new Error('Invalid verification code');
       }
       

@@ -25,8 +25,6 @@ interface ChartCardProps {
   tooltip?: string;
 }
 
-const defaultColors = ['#22c55e', '#0EA5E9', '#8B5CF6', '#F59E0B', '#EC4899'];
-
 export const ChartCard = ({
   title,
   description,
@@ -34,7 +32,7 @@ export const ChartCard = ({
   type,
   dataKey,
   xAxisDataKey = 'name',
-  colors = defaultColors,
+  colors = ['#22c55e', '#0EA5E9', '#8B5CF6', '#F59E0B', '#EC4899'],
   percentageChange,
   showPercentage = true,
   valuePrefix = '',
@@ -221,3 +219,6 @@ export const ChartCard = ({
     </Card>
   );
 };
+
+// Add a default export that re-exports the named export
+export default ChartCard;

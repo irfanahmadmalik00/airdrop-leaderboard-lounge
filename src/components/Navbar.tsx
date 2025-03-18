@@ -13,6 +13,13 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from '@/lib/auth';
 import { Badge } from "@/components/ui/badge";
 
+interface NavLink {
+  name: string;
+  path: string;
+  icon: React.ReactNode;
+  badge?: string;
+}
+
 const Navbar = () => {
   const { user, logout, isAdmin } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -20,7 +27,7 @@ const Navbar = () => {
   const location = useLocation();
 
   // Navigation links
-  const navLinks = [
+  const navLinks: NavLink[] = [
     { name: 'Dashboard', path: '/', icon: <Home className="w-4 h-4 mr-2" /> },
     { name: 'Airdrops', path: '/airdrops', icon: <Award className="w-4 h-4 mr-2" /> },
     { name: 'Testnets', path: '/testnets', icon: <BookOpen className="w-4 h-4 mr-2" /> },

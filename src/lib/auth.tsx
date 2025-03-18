@@ -56,17 +56,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // For new registrations, check invite code
-      if (inviteCode && inviteCode !== VALID_INVITE_CODE) {
-        throw new Error('Invalid invite code');
-      }
-      
-      // Simple mock authentication
-      if (email === adminUser.email && password === 'Irfan@123#13') {
-        setUser(adminUser);
-        localStorage.setItem('cryptoUser', JSON.stringify(adminUser));
-        toast.success('Welcome back, admin!');
-      } else {
+      // Check if this is a registration (inviteCode provided)
+      if (inviteCode !== undefined) {
+        // Validate invite code
+        if (inviteCode !== VALID_INVITE_CODE) {
+          throw new Error('Invalid invite code');
+        }
+        
         // Create a regular user
         const newUser: User = {
           id: Math.random().toString(36).substring(2, 9),
@@ -76,11 +72,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         setUser(newUser);
         localStorage.setItem('cryptoUser', JSON.stringify(newUser));
-        toast.success('Login successful!');
+        toast.success('Registration successful!');
+        return;
+      }
+      
+      // Handle normal login
+      if (email === adminUser.email && password === 'Irfan@123#13') {
+        setUser(adminUser);
+        localStorage.setItem('cryptoUser', JSON.stringify(adminUser));
+        toast.success('Welcome back, admin!');
+      } else {
+        // Check if user exists in localStorage (for previously registered users)
+        const storedUsers = localStorage.getItem('registeredUsers');
+        let users = storedUsers ? JSON.parse(storedUsers) : [];
+        const existingUser = users.find((u: User) => u.email === email);
+        
+        if (existingUser) {
+          setUser(existingUser);
+          localStorage.setItem('cryptoUser', JSON.stringify(existingUser));
+          toast.success('Login successful!');
+        } else {
+          // For demo purposes, create a new user if they don't exist
+          const newUser: User = {
+            id: Math.random().toString(36).substring(2, 9),
+            email,
+            username: email.split('@')[0],
+            role: 'user',
+          };
+          setUser(newUser);
+          localStorage.setItem('cryptoUser', JSON.stringify(newUser));
+          
+          // Save to "registered users"
+          users.push(newUser);
+          localStorage.setItem('registeredUsers', JSON.stringify(users));
+          
+          toast.success('Login successful!');
+        }
       }
     } catch (error) {
       console.error('Login failed', error);
       toast.error(error instanceof Error ? error.message : 'Login failed. Please try again.');
+      throw error; // Re-throw to let the login component handle the error
     } finally {
       setIsLoading(false);
     }

@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  const [inviteCode, setInviteCode] = useState('ishowcryptoairdrops'); // Pre-fill with the valid code
   const [isLoading, setIsLoading] = useState(false);
   const [showCodeInfo, setShowCodeInfo] = useState(false);
   const { login } = useAuth();
@@ -33,6 +33,7 @@ const Login = () => {
       navigate('/');
     } catch (error) {
       console.error('Login error:', error);
+      // Error handling is already in the login function
     } finally {
       setIsLoading(false);
     }
@@ -58,6 +59,7 @@ const Login = () => {
       navigate('/');
     } catch (error) {
       console.error('Registration error:', error);
+      // Error handling is already in the login function
     } finally {
       setIsLoading(false);
     }

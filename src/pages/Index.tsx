@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Award, Layers, TrendingUp, AlertCircle } from 'lucide-react';
@@ -94,25 +93,27 @@ const Index = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 animate-on-scroll">
               <ChartCard 
-                title="Bitcoin Price Chart"
-                subtitle="Historical BTC price in USD"
+                title="Price History"
+                description="Bitcoin price movement over the last 30 days"
                 data={btcPriceHistory}
-                type="area"
-                xKey="date"
-                yKey="price"
-                height={350}
+                type="line"
+                dataKey="value"
+                xAxisDataKey="date"
+                valuePrefix="$"
+                percentageChange={8.2}
+                tooltip="Price in USD"
               />
             </div>
             <div className="animate-on-scroll">
               <ChartCard 
-                title="Market Dominance"
-                subtitle="Percentage of total market cap"
+                title="Market Distribution"
+                description="Distribution of market cap across top cryptocurrencies"
                 data={marketDominance}
                 type="pie"
-                xKey="name"
-                yKey="value"
-                height={350}
-                colors={['#00FF80', '#39E991', '#00CC66', '#009249', '#004D26']}
+                dataKey="value"
+                xAxisDataKey="name"
+                height={260}
+                colors={['#22c55e', '#0EA5E9', '#8B5CF6', '#F59E0B', '#EC4899']}
               />
             </div>
           </div>

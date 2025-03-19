@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Search, Filter, Layers, ChevronDown, Clock, BarChart3, Plus, Check, ExternalLink, ArrowRight } from 'lucide-react';
+
+import { useState, useEffect } from 'react';
+import { Search, Filter, Layers, ChevronDown, Clock, BarChart3, Plus, Check, ExternalLink, ArrowRight, Pencil, Trash2, Pin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,11 +12,45 @@ import {
 import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
 import { useAuth } from '@/lib/auth';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 
-// Temporary testnet data until we implement proper backend storage
-const testnets = [
+// Tool interface
+interface Testnet {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  logo: string;
+  status: 'active' | 'upcoming' | 'ended';
+  rewards: string;
+  timeCommitment: string;
+  workRequired?: string;
+  links?: Array<{name: string, url: string}>;
+  pinned: boolean;
+  completed: boolean;
+  userId?: string;
+  dateAdded: string;
+}
+
+// Initial predefined categories
+const predefinedCategories = [
+  'Layer 1',
+  'Layer 2',
+  'Galxe Testnet',
+  'Bridge Mining',
+  'Modular Blockchain',
+  'ZK Rollup',
+  'DeFi Testnet',
+  'DAO Testnet'
+];
+
+// Initial tools data
+const initialTestnets = [
   {
-    id: 't1',
+    id: 'tool1',
     name: 'Arbitrum Nova',
     category: 'Layer 2',
     description: 'Participate in the Arbitrum Nova testnet to earn rewards',
@@ -32,7 +67,7 @@ const testnets = [
     dateAdded: '2023-08-15'
   },
   {
-    id: 't2',
+    id: 'tool2',
     name: 'Celestia Testnet',
     category: 'Modular Blockchain',
     description: 'Test the Celestia modular blockchain platform',
@@ -52,7 +87,7 @@ const testnets = [
 
 type SortOption = 'date' | 'rewards';
 type FilterOption = 'all' | 'active' | 'completed' | 'upcoming';
-type CategoryOption = 'all' | 'Layer 1' | 'Layer 2' | 'Galxe Testnet' | 'Bridge Mining' | 'Modular Blockchain';
+type CategoryOption = 'all' | 'Layer 1' | 'Layer 2' | 'Galxe Testnet' | 'Bridge Mining' | 'Modular Blockchain' | 'ZK Rollup' | 'DeFi Testnet' | 'DAO Testnet';
 
 const Testnets = () => {
   const { user } = useAuth();
@@ -60,7 +95,71 @@ const Testnets = () => {
   const [sortBy, setSortBy] = useState<SortOption>('date');
   const [filterStatus, setFilterStatus] = useState<FilterOption>('all');
   const [filterCategory, setFilterCategory] = useState<CategoryOption>('all');
-  const [testnetsList, setTestnetsList] = useState(testnets);
+  const [testnetsList, setTestnetsList] = useState<Testnet[]>([]);
+  const [categories, setCategories] = useState<string[]>(predefinedCategories);
+  
+  // Dialog states
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [currentTestnet, setCurrentTestnet] = useState<Testnet | null>(null);
+  const [isNewCategoryDialogOpen, setIsNewCategoryDialogOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+
+  // Form data for adding/editing tools
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    description: '',
+    logo: '',
+    rewards: '',
+    timeCommitment: '',
+    workRequired: '',
+    status: 'upcoming',
+    links: [{ name: 'Official Website', url: '' }]
+  });
+
+  // Load testnets from localStorage on component mount
+  useEffect(() => {
+    const storedTestnets = localStorage.getItem('userTestnets');
+    const storedCategories = localStorage.getItem('testnetCategories');
+    
+    if (storedTestnets) {
+      try {
+        const parsedTestnets = JSON.parse(storedTestnets);
+        // If user is logged in, filter to show only their testnets and public ones
+        if (user) {
+          const filteredTestnets = parsedTestnets.filter((testnet: Testnet) => 
+            !testnet.userId || testnet.userId === user.id
+          );
+          setTestnetsList(filteredTestnets);
+        } else {
+          // For non-logged in users, only show testnets without userId (public ones)
+          const publicTestnets = parsedTestnets.filter((testnet: Testnet) => !testnet.userId);
+          setTestnetsList(publicTestnets);
+        }
+      } catch (error) {
+        console.error('Failed to parse stored testnets', error);
+        setTestnetsList(initialTestnets);
+        localStorage.setItem('userTestnets', JSON.stringify(initialTestnets));
+      }
+    } else {
+      // Initialize with default testnets
+      setTestnetsList(initialTestnets);
+      localStorage.setItem('userTestnets', JSON.stringify(initialTestnets));
+    }
+    
+    if (storedCategories) {
+      try {
+        setCategories(JSON.parse(storedCategories));
+      } catch (error) {
+        console.error('Failed to parse stored categories', error);
+        setCategories(predefinedCategories);
+        localStorage.setItem('testnetCategories', JSON.stringify(predefinedCategories));
+      }
+    } else {
+      localStorage.setItem('testnetCategories', JSON.stringify(predefinedCategories));
+    }
+  }, [user]);
   
   // Filter testnets
   const filteredTestnets = testnetsList.filter((testnet) => {
@@ -98,7 +197,7 @@ const Testnets = () => {
       return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
     }
     
-    // For "rewards" we would need some numerical value, using alphabetical for demo
+    // For "rewards" we sort alphabetically as a proxy
     return a.name.localeCompare(b.name);
   });
   
@@ -137,20 +236,245 @@ const Testnets = () => {
 
   // Toggle pin status
   const togglePinTestnet = (id: string) => {
-    if (!user) return;
+    if (!user) {
+      toast.error("You must be logged in to pin testnets");
+      return;
+    }
     
-    setTestnetsList(testnetsList.map(testnet => 
-      testnet.id === id ? {...testnet, pinned: !testnet.pinned} : testnet
-    ));
+    setTestnetsList(prevList => {
+      const updated = prevList.map(testnet => 
+        testnet.id === id ? {...testnet, pinned: !testnet.pinned} : testnet
+      );
+      
+      // Save to localStorage
+      localStorage.setItem('userTestnets', JSON.stringify(updated));
+      return updated;
+    });
+    
+    toast.success('Testnet pin status updated!');
   };
   
   // Toggle completed status
   const toggleCompleteTestnet = (id: string) => {
-    if (!user) return;
+    if (!user) {
+      toast.error("You must be logged in to mark testnets as completed");
+      return;
+    }
     
-    setTestnetsList(testnetsList.map(testnet => 
-      testnet.id === id ? {...testnet, completed: !testnet.completed} : testnet
-    ));
+    setTestnetsList(prevList => {
+      const updated = prevList.map(testnet => 
+        testnet.id === id ? {...testnet, completed: !testnet.completed} : testnet
+      );
+      
+      // Save to localStorage
+      localStorage.setItem('userTestnets', JSON.stringify(updated));
+      return updated;
+    });
+    
+    const isNowCompleted = testnetsList.find(t => t.id === id)?.completed;
+    toast.success(isNowCompleted ? 'Testnet marked as incomplete' : 'Testnet marked as completed!');
+  };
+
+  // Open the edit dialog
+  const handleEditTestnet = (testnet: Testnet) => {
+    setCurrentTestnet(testnet);
+    setFormData({
+      name: testnet.name,
+      category: testnet.category,
+      description: testnet.description,
+      logo: testnet.logo,
+      rewards: testnet.rewards,
+      timeCommitment: testnet.timeCommitment,
+      workRequired: testnet.workRequired || '',
+      status: testnet.status,
+      links: testnet.links || [{ name: 'Official Website', url: '' }]
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  // Delete a testnet
+  const handleDeleteTestnet = (id: string) => {
+    if (!user) {
+      toast.error("You must be logged in to delete testnets");
+      return;
+    }
+    
+    // Check if user owns this testnet or is admin
+    const testnet = testnetsList.find(t => t.id === id);
+    if (testnet?.userId && testnet.userId !== user.id && user.role !== 'admin') {
+      toast.error("You can only delete your own testnets");
+      return;
+    }
+    
+    setTestnetsList(prevList => {
+      const updated = prevList.filter(testnet => testnet.id !== id);
+      
+      // Save to localStorage
+      localStorage.setItem('userTestnets', JSON.stringify(updated));
+      return updated;
+    });
+    
+    toast.success('Testnet deleted successfully!');
+  };
+
+  // Add a new testnet
+  const handleAddTestnet = () => {
+    if (!user) {
+      toast.error("You must be logged in to add testnets");
+      return;
+    }
+    
+    if (!formData.name || !formData.category || !formData.status) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    const newTestnet: Testnet = {
+      id: Math.random().toString(36).substring(2, 9),
+      name: formData.name,
+      category: formData.category,
+      description: formData.description,
+      logo: formData.logo || 'https://cryptologos.cc/logos/question-mark.svg',
+      status: formData.status as 'active' | 'upcoming' | 'ended',
+      rewards: formData.rewards,
+      timeCommitment: formData.timeCommitment,
+      workRequired: formData.workRequired,
+      links: formData.links,
+      pinned: false,
+      completed: false,
+      userId: user.id,
+      dateAdded: new Date().toISOString()
+    };
+    
+    setTestnetsList(prevList => {
+      const updated = [...prevList, newTestnet];
+      
+      // Save to localStorage
+      localStorage.setItem('userTestnets', JSON.stringify(updated));
+      return updated;
+    });
+    
+    // Reset form and close dialog
+    setFormData({
+      name: '',
+      category: '',
+      description: '',
+      logo: '',
+      rewards: '',
+      timeCommitment: '',
+      workRequired: '',
+      status: 'upcoming',
+      links: [{ name: 'Official Website', url: '' }]
+    });
+    setIsAddDialogOpen(false);
+    toast.success('Testnet added successfully!');
+  };
+
+  // Update an existing testnet
+  const handleUpdateTestnet = () => {
+    if (!currentTestnet || !user) return;
+    
+    if (!formData.name || !formData.category || !formData.status) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    // Check if user owns this testnet or is admin
+    if (currentTestnet.userId && currentTestnet.userId !== user.id && user.role !== 'admin') {
+      toast.error("You can only edit your own testnets");
+      return;
+    }
+    
+    const updatedTestnet = {
+      ...currentTestnet,
+      name: formData.name,
+      category: formData.category,
+      description: formData.description,
+      logo: formData.logo,
+      status: formData.status as 'active' | 'upcoming' | 'ended',
+      rewards: formData.rewards,
+      timeCommitment: formData.timeCommitment,
+      workRequired: formData.workRequired,
+      links: formData.links
+    };
+    
+    setTestnetsList(prevList => {
+      const updated = prevList.map(testnet => 
+        testnet.id === currentTestnet.id ? updatedTestnet : testnet
+      );
+      
+      // Save to localStorage
+      localStorage.setItem('userTestnets', JSON.stringify(updated));
+      return updated;
+    });
+    
+    // Reset form and close dialog
+    setFormData({
+      name: '',
+      category: '',
+      description: '',
+      logo: '',
+      rewards: '',
+      timeCommitment: '',
+      workRequired: '',
+      status: 'upcoming',
+      links: [{ name: 'Official Website', url: '' }]
+    });
+    setIsEditDialogOpen(false);
+    toast.success('Testnet updated successfully!');
+  };
+
+  // Add a new category
+  const handleAddCategory = () => {
+    if (!user) {
+      toast.error("You must be logged in to add categories");
+      return;
+    }
+    
+    if (!newCategory.trim()) {
+      toast.error('Please enter a category name');
+      return;
+    }
+    
+    if (categories.includes(newCategory)) {
+      toast.error('This category already exists');
+      return;
+    }
+    
+    const updatedCategories = [...categories, newCategory];
+    setCategories(updatedCategories);
+    localStorage.setItem('testnetCategories', JSON.stringify(updatedCategories));
+    setNewCategory('');
+    setIsNewCategoryDialogOpen(false);
+    toast.success('New category added!');
+  };
+
+  // Handle adding a new link field
+  const handleAddLink = () => {
+    setFormData({
+      ...formData,
+      links: [...formData.links, { name: '', url: '' }]
+    });
+  };
+
+  // Handle removing a link field
+  const handleRemoveLink = (index: number) => {
+    const updatedLinks = [...formData.links];
+    updatedLinks.splice(index, 1);
+    setFormData({
+      ...formData,
+      links: updatedLinks
+    });
+  };
+
+  // Handle updating a link field
+  const handleUpdateLink = (index: number, field: 'name' | 'url', value: string) => {
+    const updatedLinks = [...formData.links];
+    updatedLinks[index][field] = value;
+    setFormData({
+      ...formData,
+      links: updatedLinks
+    });
   };
 
   return (
@@ -241,7 +565,7 @@ const Testnets = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="border-crypto-lightGray/30 bg-crypto-gray">
                     <Filter className="w-4 h-4 mr-2" />
-                    {getCategoryLabel(filterCategory)}
+                    {getCategoryLabel(filterCategory as CategoryOption)}
                     <ChevronDown className="w-4 h-4 ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -249,29 +573,37 @@ const Testnets = () => {
                   <DropdownMenuItem onClick={() => setFilterCategory('all')} className="hover:bg-crypto-lightGray">
                     All Categories
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('Layer 1')} className="hover:bg-crypto-lightGray">
-                    Layer 1
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('Layer 2')} className="hover:bg-crypto-lightGray">
-                    Layer 2
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('Galxe Testnet')} className="hover:bg-crypto-lightGray">
-                    Galxe Testnet
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('Bridge Mining')} className="hover:bg-crypto-lightGray">
-                    Bridge Mining
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('Modular Blockchain')} className="hover:bg-crypto-lightGray">
-                    Modular Blockchain
-                  </DropdownMenuItem>
+                  {categories.map((category) => (
+                    <DropdownMenuItem 
+                      key={category} 
+                      onClick={() => setFilterCategory(category as CategoryOption)} 
+                      className="hover:bg-crypto-lightGray"
+                    >
+                      {category}
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
               
               {user && (
-                <Button className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Testnet
-                </Button>
+                <>
+                  <Button 
+                    variant="outline" 
+                    className="border-crypto-lightGray/30 bg-crypto-gray"
+                    onClick={() => setIsNewCategoryDialogOpen(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Category
+                  </Button>
+                  
+                  <Button 
+                    className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+                    onClick={() => setIsAddDialogOpen(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Testnet
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -293,7 +625,7 @@ const Testnets = () => {
               
               {filterCategory !== 'all' && (
                 <Badge className="bg-crypto-lightGray text-white hover:bg-crypto-gray">
-                  Category: {getCategoryLabel(filterCategory)}
+                  Category: {getCategoryLabel(filterCategory as CategoryOption)}
                   <button 
                     onClick={() => setFilterCategory('all')}
                     className="ml-2 hover:text-gray-300"
@@ -342,7 +674,7 @@ const Testnets = () => {
             </p>
           </div>
           
-          {/* Testnet cards will go here */}
+          {/* Testnet cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sortedTestnets.map((testnet) => (
               <div key={testnet.id} className="glass-card rounded-xl overflow-hidden hover-effect">
@@ -356,13 +688,19 @@ const Testnets = () => {
                       />
                       <div>
                         <h3 className="font-bold text-lg">{testnet.name}</h3>
-                        <div className="flex items-center">
-                          <Badge className="bg-crypto-lightGray/50 text-xs mr-2">
+                        <div className="flex items-center flex-wrap gap-1">
+                          <Badge className="bg-crypto-lightGray/50 text-xs">
                             {testnet.category}
                           </Badge>
-                          <Badge className={`${testnet.status === 'active' ? 'bg-crypto-green text-crypto-black' : 'bg-gray-500'} text-xs`}>
-                            {testnet.status}
+                          <Badge className={`${testnet.status === 'active' ? 'bg-crypto-green text-crypto-black' : 
+                                     testnet.status === 'upcoming' ? 'bg-blue-500 text-white' : 'bg-gray-500'} text-xs`}>
+                            {testnet.status.charAt(0).toUpperCase() + testnet.status.slice(1)}
                           </Badge>
+                          {testnet.completed && (
+                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                              Completed
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -388,6 +726,29 @@ const Testnets = () => {
                     </div>
                   </div>
                   
+                  {/* Links section - Show max first 2 links */}
+                  {testnet.links && testnet.links.length > 0 && (
+                    <div className="flex flex-col gap-2 mb-4">
+                      {testnet.links.slice(0, 2).map((link, index) => (
+                        <a 
+                          key={index}
+                          href={link.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm flex items-center text-crypto-green hover:underline"
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1" />
+                          {link.name}
+                        </a>
+                      ))}
+                      {testnet.links.length > 2 && (
+                        <div className="text-xs text-gray-400">
+                          +{testnet.links.length - 2} more links
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="flex items-center justify-between">
                     <div className="flex space-x-2">
                       {user && (
@@ -407,15 +768,37 @@ const Testnets = () => {
                             className={`text-xs ${testnet.pinned ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' : 'border-crypto-lightGray/30'}`}
                             onClick={() => togglePinTestnet(testnet.id)}
                           >
+                            <Pin className="h-3 w-3 mr-1" />
                             {testnet.pinned ? 'Unpin' : 'Pin'}
                           </Button>
                         </>
                       )}
                     </div>
                     
-                    <Button size="sm" variant="outline" className="text-sm border-crypto-green text-crypto-green hover:bg-crypto-green/10">
-                      View Details
-                    </Button>
+                    <div className="flex gap-2">
+                      {user && (testnet.userId === user.id || user.role === 'admin') && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs border-crypto-lightGray/30"
+                            onClick={() => handleEditTestnet(testnet)}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs border-crypto-lightGray/30 hover:bg-red-900/20 hover:text-red-400"
+                            onClick={() => handleDeleteTestnet(testnet.id)}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -445,6 +828,383 @@ const Testnets = () => {
           )}
         </div>
       </section>
+      
+      {/* Add Testnet Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] bg-crypto-gray border-crypto-lightGray/30">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Add New Testnet</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+            <div className="grid gap-2">
+              <label htmlFor="name" className="text-sm font-medium">Testnet Name</label>
+              <Input 
+                id="name" 
+                value={formData.name} 
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="category" className="text-sm font-medium">Category</label>
+              <div className="flex gap-2">
+                <Select 
+                  value={formData.category} 
+                  onValueChange={(value) => setFormData({...formData, category: value})}
+                >
+                  <SelectTrigger className="bg-crypto-black border-crypto-lightGray/30 w-full">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-crypto-black border-crypto-lightGray/30">
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Button 
+                  variant="outline" 
+                  className="border-crypto-lightGray/30"
+                  onClick={() => setIsNewCategoryDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="description" className="text-sm font-medium">Description</label>
+              <Textarea 
+                id="description" 
+                value={formData.description} 
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30 min-h-[80px]"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="logo" className="text-sm font-medium">Logo URL</label>
+              <Input 
+                id="logo" 
+                value={formData.logo} 
+                onChange={(e) => setFormData({...formData, logo: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30"
+                placeholder="https://example.com/logo.png"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="status" className="text-sm font-medium">Status</label>
+              <Select 
+                value={formData.status} 
+                onValueChange={(value) => setFormData({...formData, status: value})}
+              >
+                <SelectTrigger className="bg-crypto-black border-crypto-lightGray/30">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="bg-crypto-black border-crypto-lightGray/30">
+                  <SelectItem value="upcoming">Upcoming</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="ended">Ended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="rewards" className="text-sm font-medium">Rewards</label>
+              <Input 
+                id="rewards" 
+                value={formData.rewards} 
+                onChange={(e) => setFormData({...formData, rewards: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30"
+                placeholder="e.g. 500 tokens, NFT, etc."
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="timeCommitment" className="text-sm font-medium">Time Commitment</label>
+              <Input 
+                id="timeCommitment" 
+                value={formData.timeCommitment} 
+                onChange={(e) => setFormData({...formData, timeCommitment: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30"
+                placeholder="e.g. 2-3 hours per week"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="workRequired" className="text-sm font-medium">Work Required</label>
+              <Input 
+                id="workRequired" 
+                value={formData.workRequired} 
+                onChange={(e) => setFormData({...formData, workRequired: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30"
+                placeholder="e.g. Complete 5 transactions, stake tokens, etc."
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Links</label>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAddLink}
+                  className="h-7 px-2 border-crypto-lightGray/30"
+                  disabled={formData.links.length >= 50}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Link
+                </Button>
+              </div>
+              
+              {formData.links.map((link, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input 
+                    placeholder="Link Name" 
+                    value={link.name} 
+                    onChange={(e) => handleUpdateLink(index, 'name', e.target.value)}
+                    className="bg-crypto-black border-crypto-lightGray/30 flex-1"
+                  />
+                  <Input 
+                    placeholder="URL" 
+                    value={link.url} 
+                    onChange={(e) => handleUpdateLink(index, 'url', e.target.value)}
+                    className="bg-crypto-black border-crypto-lightGray/30 flex-2"
+                  />
+                  {formData.links.length > 1 && (
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => handleRemoveLink(index)}
+                      className="h-8 w-8 p-0 border-crypto-lightGray/30"
+                    >
+                      ×
+                    </Button>
+                  )}
+                </div>
+              ))}
+              {formData.links.length >= 50 && (
+                <p className="text-xs text-yellow-400">Maximum 50 links allowed</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="border-crypto-lightGray/30">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddTestnet} 
+              className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+            >
+              Add Testnet
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Testnet Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] bg-crypto-gray border-crypto-lightGray/30">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Edit Testnet</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+            <div className="grid gap-2">
+              <label htmlFor="edit-name" className="text-sm font-medium">Testnet Name</label>
+              <Input 
+                id="edit-name" 
+                value={formData.name} 
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="edit-category" className="text-sm font-medium">Category</label>
+              <div className="flex gap-2">
+                <Select 
+                  value={formData.category} 
+                  onValueChange={(value) => setFormData({...formData, category: value})}
+                >
+                  <SelectTrigger className="bg-crypto-black border-crypto-lightGray/30 w-full">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-crypto-black border-crypto-lightGray/30">
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Button 
+                  variant="outline" 
+                  className="border-crypto-lightGray/30"
+                  onClick={() => setIsNewCategoryDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="edit-description" className="text-sm font-medium">Description</label>
+              <Textarea 
+                id="edit-description" 
+                value={formData.description} 
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30 min-h-[80px]"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="edit-logo" className="text-sm font-medium">Logo URL</label>
+              <Input 
+                id="edit-logo" 
+                value={formData.logo} 
+                onChange={(e) => setFormData({...formData, logo: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="edit-status" className="text-sm font-medium">Status</label>
+              <Select 
+                value={formData.status} 
+                onValueChange={(value) => setFormData({...formData, status: value})}
+              >
+                <SelectTrigger className="bg-crypto-black border-crypto-lightGray/30">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="bg-crypto-black border-crypto-lightGray/30">
+                  <SelectItem value="upcoming">Upcoming</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="ended">Ended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="edit-rewards" className="text-sm font-medium">Rewards</label>
+              <Input 
+                id="edit-rewards" 
+                value={formData.rewards} 
+                onChange={(e) => setFormData({...formData, rewards: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="edit-timeCommitment" className="text-sm font-medium">Time Commitment</label>
+              <Input 
+                id="edit-timeCommitment" 
+                value={formData.timeCommitment} 
+                onChange={(e) => setFormData({...formData, timeCommitment: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <label htmlFor="edit-workRequired" className="text-sm font-medium">Work Required</label>
+              <Input 
+                id="edit-workRequired" 
+                value={formData.workRequired} 
+                onChange={(e) => setFormData({...formData, workRequired: e.target.value})}
+                className="bg-crypto-black border-crypto-lightGray/30"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Links</label>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAddLink}
+                  className="h-7 px-2 border-crypto-lightGray/30"
+                  disabled={formData.links.length >= 50}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Link
+                </Button>
+              </div>
+              
+              {formData.links.map((link, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input 
+                    placeholder="Link Name" 
+                    value={link.name} 
+                    onChange={(e) => handleUpdateLink(index, 'name', e.target.value)}
+                    className="bg-crypto-black border-crypto-lightGray/30 flex-1"
+                  />
+                  <Input 
+                    placeholder="URL" 
+                    value={link.url} 
+                    onChange={(e) => handleUpdateLink(index, 'url', e.target.value)}
+                    className="bg-crypto-black border-crypto-lightGray/30 flex-2"
+                  />
+                  {formData.links.length > 1 && (
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => handleRemoveLink(index)}
+                      className="h-8 w-8 p-0 border-crypto-lightGray/30"
+                    >
+                      ×
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="border-crypto-lightGray/30">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateTestnet} 
+              className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+            >
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Add Category Dialog */}
+      <Dialog open={isNewCategoryDialogOpen} onOpenChange={setIsNewCategoryDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-crypto-gray border-crypto-lightGray/30">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Add New Category</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <Input 
+              placeholder="Enter new category name" 
+              value={newCategory} 
+              onChange={(e) => setNewCategory(e.target.value)}
+              className="bg-crypto-black border-crypto-lightGray/30"
+            />
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsNewCategoryDialogOpen(false)} className="border-crypto-lightGray/30">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddCategory} 
+              className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+            >
+              Add Category
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       {/* Footer */}
       <footer className="py-8 px-4 border-t border-crypto-lightGray/20">

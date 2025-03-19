@@ -7,11 +7,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 import { Suspense, lazy } from "react";
-import Index from "./pages/Index";
 
 // Lazy load pages to improve performance
+const Index = lazy(() => import("./pages/Index"));
 const Airdrops = lazy(() => import("./pages/Airdrops"));
-const AirdropRanking = lazy(() => import("./pages/AirdropRanking")); // Add the AirdropRanking page
+const AirdropRanking = lazy(() => import("./pages/AirdropRanking"));
 const Videos = lazy(() => import("./pages/Videos"));
 const Testnets = lazy(() => import("./pages/Testnets"));
 const Tools = lazy(() => import("./pages/Tools"));
@@ -74,40 +74,45 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const AppRoutes = () => (
-  <Routes>
-    <Route path="/" element={<Index />} />
-    <Route path="/airdrops" element={<SuspenseWrapper><Airdrops /></SuspenseWrapper>} />
-    <Route path="/airdrops-ranking" element={<SuspenseWrapper><AirdropRanking /></SuspenseWrapper>} /> {/* Add airdrops-ranking route */}
-    <Route path="/videos" element={<SuspenseWrapper><Videos /></SuspenseWrapper>} />
-    <Route path="/testnets" element={
-      <SuspenseWrapper>
-        <AuthenticatedRoute>
-          <Testnets />
-        </AuthenticatedRoute>
-      </SuspenseWrapper>
-    } />
-    <Route path="/tools" element={<SuspenseWrapper><Tools /></SuspenseWrapper>} />
-    <Route path="/login" element={<SuspenseWrapper><Login /></SuspenseWrapper>} />
-    <Route path="/dashboard" element={
-      <SuspenseWrapper>
-        <AuthenticatedRoute>
-          <UserDashboard />
-        </AuthenticatedRoute>
-      </SuspenseWrapper>
-    } />
-    <Route path="/admin" element={
-      <SuspenseWrapper>
-        <AdminRoute>
-          <AdminDashboard />
-        </AdminRoute>
-      </SuspenseWrapper>
-    } />
-    <Route path="/about" element={<SuspenseWrapper><AboutUs /></SuspenseWrapper>} />
-    <Route path="/how-it-works" element={<SuspenseWrapper><HowItWorks /></SuspenseWrapper>} />
-    <Route path="*" element={<SuspenseWrapper><NotFound /></SuspenseWrapper>} />
-  </Routes>
-);
+const AppRoutes = () => {
+  const { user } = useAuth();
+  
+  return (
+    <Routes>
+      {/* If user is logged in, redirect to dashboard, otherwise show landing page */}
+      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <SuspenseWrapper><Index /></SuspenseWrapper>} />
+      <Route path="/airdrops" element={<SuspenseWrapper><Airdrops /></SuspenseWrapper>} />
+      <Route path="/airdrops-ranking" element={<SuspenseWrapper><AirdropRanking /></SuspenseWrapper>} />
+      <Route path="/videos" element={<SuspenseWrapper><Videos /></SuspenseWrapper>} />
+      <Route path="/testnets" element={
+        <SuspenseWrapper>
+          <AuthenticatedRoute>
+            <Testnets />
+          </AuthenticatedRoute>
+        </SuspenseWrapper>
+      } />
+      <Route path="/tools" element={<SuspenseWrapper><Tools /></SuspenseWrapper>} />
+      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <SuspenseWrapper><Login /></SuspenseWrapper>} />
+      <Route path="/dashboard" element={
+        <SuspenseWrapper>
+          <AuthenticatedRoute>
+            <UserDashboard />
+          </AuthenticatedRoute>
+        </SuspenseWrapper>
+      } />
+      <Route path="/admin" element={
+        <SuspenseWrapper>
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        </SuspenseWrapper>
+      } />
+      <Route path="/about" element={<SuspenseWrapper><AboutUs /></SuspenseWrapper>} />
+      <Route path="/how-it-works" element={<SuspenseWrapper><HowItWorks /></SuspenseWrapper>} />
+      <Route path="*" element={<SuspenseWrapper><NotFound /></SuspenseWrapper>} />
+    </Routes>
+  );
+};
 
 const App = () => {
   return (

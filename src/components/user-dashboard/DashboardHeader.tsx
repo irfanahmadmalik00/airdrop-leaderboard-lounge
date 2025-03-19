@@ -1,6 +1,6 @@
 
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 
 interface DashboardHeaderProps {
@@ -39,7 +39,7 @@ const DashboardHeader = ({
           onClick={onAddAirdrop}
           className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen mt-4 md:mt-0"
         >
-          <PlusCircle className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 h-4 w-4" />
           Add Airdrop
         </Button>
       </div>

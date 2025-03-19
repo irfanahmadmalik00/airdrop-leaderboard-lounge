@@ -1,76 +1,62 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layers, Mail, Key, ArrowRight, AlertCircle, User } from 'lucide-react';
+import { Layers, Mail, Key, ArrowRight, AlertCircle, User, Calculator, LockKeyhole } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 const Login = () => {
+  // Auth hooks
+  const { login, register, generateMathQuestion, currentMathQuestion } = useAuth();
+  const navigate = useNavigate();
+  
+  // Form states
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [mathAnswer, setMathAnswer] = useState<number | ''>('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
-  const [codeSent, setCodeSent] = useState(false);
-  const [isInviteCode, setIsInviteCode] = useState(false);
   
-  const { 
-    login, 
-    register, 
-    requestVerificationCode, 
-    pendingVerificationEmail, 
-    setPendingVerificationEmail 
-  } = useAuth();
-  const navigate = useNavigate();
-
-  // If there's a pending verification email, use it
+  // Init math question
   useEffect(() => {
-    if (pendingVerificationEmail) {
-      setEmail(pendingVerificationEmail);
-      setCodeSent(true);
+    if (!currentMathQuestion) {
+      generateMathQuestion();
     }
-  }, [pendingVerificationEmail]);
-
-  const handleSendVerificationCode = async (isLogin = true) => {
-    if (!email) {
-      toast.error('Please enter your email address');
-      return;
-    }
-    
-    try {
-      await requestVerificationCode(email, isLogin);
-      setCodeSent(true);
-    } catch (error) {
-      console.error('Error sending verification code:', error);
-    }
+  }, [currentMathQuestion, generateMathQuestion]);
+  
+  // Reset the form when switching tabs
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setEmail('');
+    setUsername('');
+    setPassword('');
+    setInviteCode('');
+    setMathAnswer('');
+    generateMathQuestion();
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email) {
-      toast.error('Please enter your email');
-      return;
-    }
-    
-    if (!verificationCode) {
-      toast.error('Please enter the verification code');
+    if (!username || !password || !inviteCode || mathAnswer === '') {
+      toast.error('All fields are required');
       return;
     }
     
     setIsLoading(true);
     
     try {
-      await login(email, verificationCode);
-      navigate('/');
+      await login(username, password, inviteCode, Number(mathAnswer));
+      navigate('/dashboard');
     } catch (error) {
+      // Error is already handled in login function
       console.error('Login error:', error);
-      // Error handling is already in the login function
     } finally {
       setIsLoading(false);
     }
@@ -79,42 +65,22 @@ const Login = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !username) {
-      toast.error('Please enter both email and username');
-      return;
-    }
-    
-    if (!verificationCode) {
-      toast.error('Please enter the verification code');
+    if (!email || !username || !password || !inviteCode || mathAnswer === '') {
+      toast.error('All fields are required');
       return;
     }
     
     setIsLoading(true);
     
     try {
-      await register(email, username, verificationCode);
-      navigate('/');
+      await register(email, username, password, inviteCode, Number(mathAnswer));
+      navigate('/dashboard');
     } catch (error) {
+      // Error is already handled in register function
       console.error('Registration error:', error);
-      // Error handling is already in the register function
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Reset the form when switching tabs
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    setCodeSent(false);
-    setVerificationCode('');
-    setPendingVerificationEmail(null);
-    setIsInviteCode(false);
-  };
-
-  // Toggle between verification code and invitation code
-  const toggleCodeType = () => {
-    setIsInviteCode(!isInviteCode);
-    setVerificationCode(isInviteCode ? '' : 'ishowcryptoairdrops');
   };
 
   return (
@@ -141,138 +107,85 @@ const Login = () => {
             </TabsList>
             
             <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-3">
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <Input
-                      type="email"
-                      placeholder="Email address"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      type="text"
+                      placeholder="Username or Email"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       className="pl-10 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
-                      disabled={codeSent}
                     />
                   </div>
                   
-                  {!codeSent ? (
-                    <Button
-                      type="button"
-                      onClick={() => handleSendVerificationCode(true)}
-                      className="w-full h-12 bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen transition-colors group"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Sending...' : (
-                        <>
-                          Send Verification Code
-                          <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                        </>
-                      )}
-                    </Button>
-                  ) : (
-                    <>
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <p className="text-sm text-gray-400">
-                            {isInviteCode 
-                              ? "Enter the special invitation code" 
-                              : `Enter the 6-digit verification code sent to ${email}`}
-                          </p>
-                          <Button
-                            type="button"
-                            variant="link"
-                            size="sm"
-                            onClick={toggleCodeType}
-                            className="text-crypto-green hover:text-crypto-darkGreen text-xs"
-                          >
-                            {isInviteCode ? "Use verification code" : "Use invitation code"}
-                          </Button>
-                        </div>
-                        
-                        {isInviteCode ? (
-                          <Input
-                            placeholder="Invitation code"
-                            value={verificationCode}
-                            onChange={(e) => setVerificationCode(e.target.value)}
-                            className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
-                          />
-                        ) : (
-                          <InputOTP 
-                            maxLength={6}
-                            value={verificationCode} 
-                            onChange={setVerificationCode}
-                            render={({ slots }) => (
-                              <InputOTPGroup className="gap-2 justify-center">
-                                {slots.map((slot, index) => (
-                                  <InputOTPSlot 
-                                    key={index} 
-                                    {...slot} 
-                                    index={index}
-                                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                                  />
-                                ))}
-                              </InputOTPGroup>
-                            )}
-                          />
-                        )}
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setCodeSent(false);
-                            setPendingVerificationEmail(null);
-                          }}
-                          className="text-gray-400 hover:text-gray-300"
-                        >
-                          Change Email
-                        </Button>
-                        
-                        {!isInviteCode && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleSendVerificationCode(true)}
-                            className="text-crypto-green hover:text-crypto-darkGreen"
-                          >
-                            Resend Code
-                          </Button>
-                        )}
-                      </div>
-                      
-                      <Button
-                        type="submit"
-                        className="w-full h-12 bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen transition-colors group"
-                        disabled={isLoading || (!isInviteCode && verificationCode.length < 6) || (isInviteCode && !verificationCode)}
-                      >
-                        {isLoading ? 'Signing in...' : (
-                          <>
-                            Sign in
-                            <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                          </>
-                        )}
-                      </Button>
-                    </>
-                  )}
+                  <div className="relative">
+                    <Key className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="password"
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
+                    />
+                  </div>
+                  
+                  <div className="relative">
+                    <LockKeyhole className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="password"
+                      placeholder="Invitation Code"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      className="pl-10 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
+                    />
+                  </div>
+                  
+                  <div className="relative">
+                    <Calculator className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <div className="flex items-center gap-2">
+                      <span className="bg-crypto-gray border border-crypto-lightGray/30 rounded-md px-4 py-2 min-w-24 text-center">
+                        {currentMathQuestion?.question || 'Loading...'}
+                      </span>
+                      <Input
+                        type="number"
+                        placeholder="Answer"
+                        value={mathAnswer}
+                        onChange={(e) => setMathAnswer(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="pl-3 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
+                      />
+                    </div>
+                  </div>
+                  
+                  <Button
+                    type="submit"
+                    className="w-full h-12 bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen transition-colors group"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Signing in...' : (
+                      <>
+                        Sign in
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </Button>
                 </div>
                 
                 <Alert className="bg-crypto-gray/80 border-crypto-green/30">
                   <AlertCircle className="h-4 w-4 text-crypto-green" />
                   <AlertDescription className="text-xs text-gray-300">
-                    For demo: use verification code <span className="text-crypto-green font-medium">123456</span> or 
-                    invitation code <span className="text-crypto-green font-medium">ishowcryptoairdrops</span>
+                    Admin login: Username <span className="text-crypto-green font-medium">UmarCryptospace</span>, 
+                    Password <span className="text-crypto-green font-medium">(hidden)</span>, 
+                    Invite Code <span className="text-crypto-green font-medium">ishowcryptoairdrops</span>
                   </AlertDescription>
                 </Alert>
               </form>
             </TabsContent>
             
             <TabsContent value="register">
-              <form onSubmit={handleRegister} className="space-y-6">
-                <div className="space-y-4">
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-3">
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <Input
@@ -281,161 +194,89 @@ const Login = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
-                      disabled={codeSent}
                     />
                   </div>
                   
-                  {!codeSent ? (
-                    <>
-                      <div className="relative">
-                        <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                        <Input
-                          type="text"
-                          placeholder="Username"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          className="pl-10 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
-                        />
-                      </div>
-                      
-                      <Button
-                        type="button"
-                        onClick={() => handleSendVerificationCode(false)}
-                        className="w-full h-12 bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen transition-colors group"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Sending...' : (
-                          <>
-                            Send Verification Code
-                            <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                          </>
-                        )}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="relative">
-                        <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                        <Input
-                          type="text"
-                          placeholder="Username"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          className="pl-10 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
-                        />
-                      </div>
-                      
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <p className="text-sm text-gray-400">
-                            {isInviteCode 
-                              ? "Enter the special invitation code" 
-                              : `Enter the 6-digit verification code sent to ${email}`}
-                          </p>
-                          <Button
-                            type="button"
-                            variant="link"
-                            size="sm"
-                            onClick={toggleCodeType}
-                            className="text-crypto-green hover:text-crypto-darkGreen text-xs"
-                          >
-                            {isInviteCode ? "Use verification code" : "Use invitation code"}
-                          </Button>
-                        </div>
-                        
-                        {isInviteCode ? (
-                          <Input
-                            placeholder="Invitation code"
-                            value={verificationCode}
-                            onChange={(e) => setVerificationCode(e.target.value)}
-                            className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
-                          />
-                        ) : (
-                          <InputOTP 
-                            maxLength={6}
-                            value={verificationCode} 
-                            onChange={setVerificationCode}
-                            render={({ slots }) => (
-                              <InputOTPGroup className="gap-2 justify-center">
-                                {slots.map((slot, index) => (
-                                  <InputOTPSlot 
-                                    key={index} 
-                                    {...slot} 
-                                    index={index}
-                                    className="bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
-                                  />
-                                ))}
-                              </InputOTPGroup>
-                            )}
-                          />
-                        )}
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setCodeSent(false);
-                            setPendingVerificationEmail(null);
-                          }}
-                          className="text-gray-400 hover:text-gray-300"
-                        >
-                          Change Email
-                        </Button>
-                        
-                        {!isInviteCode && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleSendVerificationCode(false)}
-                            className="text-crypto-green hover:text-crypto-darkGreen"
-                          >
-                            Resend Code
-                          </Button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-                
-                {codeSent && (
-                  <>
-                    <div className="flex items-center">
-                      <input
-                        id="terms"
-                        name="terms"
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-crypto-lightGray/30 text-crypto-green focus:ring-crypto-green/20"
-                        required
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="pl-10 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
+                    />
+                  </div>
+                  
+                  <div className="relative">
+                    <Key className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="password"
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
+                    />
+                  </div>
+                  
+                  <div className="relative">
+                    <LockKeyhole className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="password"
+                      placeholder="Invitation Code"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      className="pl-10 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
+                    />
+                  </div>
+                  
+                  <div className="relative">
+                    <Calculator className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <div className="flex items-center gap-2">
+                      <span className="bg-crypto-gray border border-crypto-lightGray/30 rounded-md px-4 py-2 min-w-24 text-center">
+                        {currentMathQuestion?.question || 'Loading...'}
+                      </span>
+                      <Input
+                        type="number"
+                        placeholder="Answer"
+                        value={mathAnswer}
+                        onChange={(e) => setMathAnswer(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="pl-3 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20 h-12"
                       />
-                      <label htmlFor="terms" className="ml-2 block text-sm text-gray-400">
-                        I agree to the <a href="#" className="text-crypto-green hover:text-crypto-darkGreen">Terms of Service</a>
-                      </label>
                     </div>
-                    
-                    <Button
-                      type="submit"
-                      className="w-full h-12 bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen transition-colors group"
-                      disabled={isLoading || (!isInviteCode && verificationCode.length < 6) || (isInviteCode && !verificationCode)}
-                    >
-                      {isLoading ? 'Registering...' : (
-                        <>
-                          Register
-                          <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                        </>
-                      )}
-                    </Button>
-                  </>
-                )}
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      id="terms"
+                      name="terms"
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-crypto-lightGray/30 text-crypto-green focus:ring-crypto-green/20"
+                      required
+                    />
+                    <label htmlFor="terms" className="ml-2 block text-sm text-gray-400">
+                      I agree to the <a href="#" className="text-crypto-green hover:text-crypto-darkGreen">Terms of Service</a>
+                    </label>
+                  </div>
+                  
+                  <Button
+                    type="submit"
+                    className="w-full h-12 bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen transition-colors group"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Registering...' : (
+                      <>
+                        Register
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </Button>
+                </div>
                 
                 <Alert className="bg-crypto-gray/80 border-crypto-green/30">
                   <AlertCircle className="h-4 w-4 text-crypto-green" />
                   <AlertDescription className="text-xs text-gray-300">
-                    For demo: use verification code <span className="text-crypto-green font-medium">123456</span> or 
-                    invitation code <span className="text-crypto-green font-medium">ishowcryptoairdrops</span>
+                    To register, you need an invitation code.
                   </AlertDescription>
                 </Alert>
               </form>

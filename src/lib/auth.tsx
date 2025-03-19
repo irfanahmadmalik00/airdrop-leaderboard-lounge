@@ -12,122 +12,196 @@ export interface User {
   role: UserRole;
   avatar?: string;
   ownedAirdrops?: string[]; // IDs of airdrops owned by this user
+  deviceId?: string; // Store device ID for security
+  completedAirdrops?: string[];
+  completedTestnets?: string[];
+  pinnedAirdrops?: string[];
+  pinnedTestnets?: string[];
+  pinnedTools?: string[];
+  level?: number;
+  createdAt: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, code?: string) => Promise<void>;
+  login: (username: string, password: string, inviteCode: string, mathAnswer: number) => Promise<void>;
   logout: () => void;
-  register: (email: string, username: string, code: string) => Promise<void>;
-  requestVerificationCode: (email: string, isLogin?: boolean) => Promise<void>;
+  register: (email: string, username: string, password: string, inviteCode: string, mathAnswer: number) => Promise<void>;
   isAdmin: boolean;
-  pendingVerificationEmail: string | null;
-  setPendingVerificationEmail: (email: string | null) => void;
+  generateMathQuestion: () => { question: string, answer: number };
+  currentMathQuestion: { question: string, answer: number } | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock admin user
-const adminUser: User = {
-  id: '1',
-  email: 'malickirfan00@gmail.com',
-  username: 'UmarCryptospace',
-  role: 'admin',
-  ownedAirdrops: [],
-};
-
-// Valid invite/verification code for demo
-const VALID_VERIFICATION_CODE = '123456';
-// Special invitation code
+// Special invitation code (only one code is valid)
 const SPECIAL_INVITATION_CODE = 'ishowcryptoairdrops';
+
+// Admin credentials
+const ADMIN_EMAIL = 'malickirfan00@gmail.com';
+const ADMIN_USERNAME = 'UmarCryptospace';
+const ADMIN_PASSWORD = 'Irfan@123#13';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
+  const [currentMathQuestion, setCurrentMathQuestion] = useState<{ question: string, answer: number } | null>(null);
+
+  // Generate a random device ID if not exists
+  const getDeviceId = () => {
+    let deviceId = localStorage.getItem('deviceId');
+    if (!deviceId) {
+      deviceId = Math.random().toString(36).substring(2, 15) + 
+                Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('deviceId', deviceId);
+    }
+    return deviceId;
+  };
+
+  // Generate a simple math question
+  const generateMathQuestion = () => {
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = Math.floor(Math.random() * 10) + 1;
+    const operators = ['+', '-', '*'];
+    const operator = operators[Math.floor(Math.random() * operators.length)];
+    
+    let answer: number;
+    let question: string;
+    
+    switch (operator) {
+      case '+':
+        question = `${num1} + ${num2} = ?`;
+        answer = num1 + num2;
+        break;
+      case '-':
+        // Ensure positive result
+        if (num1 >= num2) {
+          question = `${num1} - ${num2} = ?`;
+          answer = num1 - num2;
+        } else {
+          question = `${num2} - ${num1} = ?`;
+          answer = num2 - num1;
+        }
+        break;
+      case '*':
+        question = `${num1} × ${num2} = ?`;
+        answer = num1 * num2;
+        break;
+      default:
+        question = `${num1} + ${num2} = ?`;
+        answer = num1 + num2;
+    }
+    
+    const mathQuestion = { question, answer };
+    setCurrentMathQuestion(mathQuestion);
+    return mathQuestion;
+  };
 
   // Check for existing session on mount
   useEffect(() => {
     const storedUser = localStorage.getItem('cryptoUser');
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        
+        // Check if user is logging in from the same device
+        const currentDeviceId = getDeviceId();
+        if (parsedUser.deviceId && parsedUser.deviceId !== currentDeviceId) {
+          // Device ID mismatch - don't log in
+          localStorage.removeItem('cryptoUser');
+          toast.error('Security alert: Please login again from this device');
+        } else {
+          setUser(parsedUser);
+        }
       } catch (error) {
         console.error('Failed to parse stored user', error);
         localStorage.removeItem('cryptoUser');
       }
     }
     setIsLoading(false);
+    
+    // Generate initial math question
+    generateMathQuestion();
   }, []);
 
-  // Request a verification code (for both login and registration)
-  const requestVerificationCode = async (email: string, isLogin = false) => {
-    setIsLoading(true);
-    
-    try {
-      // In a real app, this would send an email with a verification code
-      // For demo purposes, we'll just pretend an email was sent
-      
-      // Check if trying to login as admin
-      if (isLogin && email === adminUser.email) {
-        toast.success(`Verification code sent to ${email}. (Use "123456" for demo)`);
-      } else {
-        // For regular users
-        toast.success(`Verification code sent to ${email}. (Use "123456" for demo)`);
-        
-        // Store the pending verification email
-        setPendingVerificationEmail(email);
-      }
-    } catch (error) {
-      console.error('Failed to send verification code', error);
-      toast.error('Failed to send verification code. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Register a new user
-  const register = async (email: string, username: string, code: string) => {
+  const register = async (
+    email: string, 
+    username: string, 
+    password: string, 
+    inviteCode: string,
+    mathAnswer: number
+  ) => {
     setIsLoading(true);
     
     try {
-      // Validate verification code or special invitation code
-      if (code !== VALID_VERIFICATION_CODE && code !== SPECIAL_INVITATION_CODE) {
-        throw new Error('Invalid verification code');
+      // Validate inputs
+      if (!email || !username || !password) {
+        throw new Error('All fields are required');
+      }
+      
+      // Check math answer
+      if (!currentMathQuestion || mathAnswer !== currentMathQuestion.answer) {
+        throw new Error('Incorrect math answer. Please try again.');
+      }
+      
+      // Validate invite code
+      if (inviteCode !== SPECIAL_INVITATION_CODE) {
+        throw new Error('Invalid invitation code');
       }
       
       // Check if user already exists
       const storedUsers = localStorage.getItem('registeredUsers');
       let users = storedUsers ? JSON.parse(storedUsers) : [];
-      const existingUser = users.find((u: User) => u.email === email);
+      
+      const existingUser = users.find(
+        (u: User) => u.email === email || u.username === username
+      );
       
       if (existingUser) {
-        throw new Error('User with this email already exists');
+        if (existingUser.email === email) {
+          throw new Error('User with this email already exists');
+        } else {
+          throw new Error('Username is already taken');
+        }
       }
       
-      // Check if special admin email
-      const isAdminEmail = email === adminUser.email;
+      // Check if admin email and username
+      const isAdmin = (
+        email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && 
+        username === ADMIN_USERNAME && 
+        password === ADMIN_PASSWORD
+      );
       
       // Create a new user
+      const deviceId = getDeviceId();
       const newUser: User = {
         id: Math.random().toString(36).substring(2, 9),
         email,
         username,
-        role: isAdminEmail ? 'admin' : 'user',
-        ownedAirdrops: [],
+        role: isAdmin ? 'admin' : 'user',
+        deviceId,
+        completedAirdrops: [],
+        completedTestnets: [],
+        pinnedAirdrops: [],
+        pinnedTestnets: [],
+        pinnedTools: [],
+        level: 1,
+        createdAt: new Date().toISOString(),
       };
       
       // Add to registered users
-      users.push(newUser);
+      users.push({...newUser, password}); // Store password for login
       localStorage.setItem('registeredUsers', JSON.stringify(users));
       
       // Log the user in
-      setUser(newUser);
-      localStorage.setItem('cryptoUser', JSON.stringify(newUser));
+      const userWithoutPassword = {...newUser}; // Don't store password in session
+      setUser(userWithoutPassword);
+      localStorage.setItem('cryptoUser', JSON.stringify(userWithoutPassword));
       
-      // Clear pending verification email
-      setPendingVerificationEmail(null);
+      // Generate new math question for next login
+      generateMathQuestion();
       
       toast.success('Registration successful!');
     } catch (error) {
@@ -139,44 +213,109 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Login with email verification code
-  const login = async (email: string, code?: string) => {
+  // Login with username/email and password
+  const login = async (
+    usernameOrEmail: string, 
+    password: string, 
+    inviteCode: string,
+    mathAnswer: number
+  ) => {
     setIsLoading(true);
     
     try {
-      // If no code provided, we're just requesting a code
-      if (!code) {
-        throw new Error('Verification code required');
+      // Validate inputs
+      if (!usernameOrEmail || !password) {
+        throw new Error('All fields are required');
       }
       
-      // Validate verification code or special invitation code
-      if (code !== VALID_VERIFICATION_CODE && code !== SPECIAL_INVITATION_CODE) {
-        throw new Error('Invalid verification code');
+      // Check math answer
+      if (!currentMathQuestion || mathAnswer !== currentMathQuestion.answer) {
+        throw new Error('Incorrect math answer. Please try again.');
       }
       
-      // Check if admin login
-      if (email === adminUser.email) {
+      // Validate invite code
+      if (inviteCode !== SPECIAL_INVITATION_CODE) {
+        throw new Error('Invalid invitation code');
+      }
+      
+      // Check for admin login
+      if (
+        (usernameOrEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase() || 
+         usernameOrEmail === ADMIN_USERNAME) && 
+        password === ADMIN_PASSWORD
+      ) {
+        const deviceId = getDeviceId();
+        const adminUser: User = {
+          id: 'admin-1',
+          email: ADMIN_EMAIL,
+          username: ADMIN_USERNAME,
+          role: 'admin',
+          deviceId,
+          completedAirdrops: [],
+          completedTestnets: [],
+          pinnedAirdrops: [],
+          pinnedTestnets: [],
+          pinnedTools: [],
+          level: 10,
+          createdAt: new Date().toISOString(),
+        };
+        
         setUser(adminUser);
         localStorage.setItem('cryptoUser', JSON.stringify(adminUser));
+        
+        // Check registered users and add admin if not present
+        const storedUsers = localStorage.getItem('registeredUsers');
+        let users = storedUsers ? JSON.parse(storedUsers) : [];
+        
+        const adminExists = users.find(
+          (u: User) => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()
+        );
+        
+        if (!adminExists) {
+          users.push({...adminUser, password: ADMIN_PASSWORD});
+          localStorage.setItem('registeredUsers', JSON.stringify(users));
+        }
+        
         toast.success('Welcome back, admin!');
         return;
       }
       
       // Check if user exists in localStorage
       const storedUsers = localStorage.getItem('registeredUsers');
-      let users = storedUsers ? JSON.parse(storedUsers) : [];
-      const existingUser = users.find((u: User) => u.email === email);
-      
-      if (existingUser) {
-        setUser(existingUser);
-        localStorage.setItem('cryptoUser', JSON.stringify(existingUser));
-        toast.success('Login successful!');
-      } else {
+      if (!storedUsers) {
         throw new Error('User not found. Please register first.');
       }
       
-      // Clear pending verification email
-      setPendingVerificationEmail(null);
+      const users = JSON.parse(storedUsers);
+      const existingUser = users.find(
+        (u: any) => 
+          (u.email.toLowerCase() === usernameOrEmail.toLowerCase() || 
+           u.username === usernameOrEmail) && 
+          u.password === password
+      );
+      
+      if (!existingUser) {
+        throw new Error('Invalid credentials. Please try again.');
+      }
+      
+      // Update device ID for security
+      const deviceId = getDeviceId();
+      const userWithDevice = {...existingUser, deviceId};
+      delete userWithDevice.password; // Don't store password in session
+      
+      // Update user in registered users
+      const updatedUsers = users.map((u: any) => 
+        u.id === existingUser.id ? {...u, deviceId} : u
+      );
+      localStorage.setItem('registeredUsers', JSON.stringify(updatedUsers));
+      
+      setUser(userWithDevice);
+      localStorage.setItem('cryptoUser', JSON.stringify(userWithDevice));
+      
+      // Generate new math question for next login
+      generateMathQuestion();
+      
+      toast.success('Login successful!');
     } catch (error) {
       console.error('Login failed', error);
       toast.error(error instanceof Error ? error.message : 'Login failed. Please try again.');
@@ -190,6 +329,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     localStorage.removeItem('cryptoUser');
     toast.info('You have been logged out');
+    
+    // Generate new math question for next login
+    generateMathQuestion();
   };
 
   const isAdmin = user?.role === 'admin';
@@ -202,10 +344,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         login,
         logout,
         register,
-        requestVerificationCode,
         isAdmin,
-        pendingVerificationEmail,
-        setPendingVerificationEmail,
+        generateMathQuestion,
+        currentMathQuestion,
       }}
     >
       {children}

@@ -1,6 +1,16 @@
-
 import { useState, useEffect } from 'react';
-import { PlusCircle, Search, Filter, Trophy, SortAsc, ChevronDown, Clock } from 'lucide-react';
+import { 
+  Search, 
+  Filter, 
+  ChevronDown, 
+  Plus, 
+  Trash, 
+  Edit, 
+  Check, 
+  X, 
+  Save, 
+  Pinboard 
+} from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

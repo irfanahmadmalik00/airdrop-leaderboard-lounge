@@ -1,6 +1,6 @@
 
-import { useState } from 'react';
-import { Search, Filter, Award, SortAsc, ChevronDown, Clock, BarChart3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Filter, Award, SortAsc, ChevronDown, Clock, BarChart3, PlusCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,22 +10,71 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import AirdropCard from '@/components/AirdropCard';
 import { airdrops } from '@/lib/data';
+import { useAuth } from '@/lib/auth';
+import AddEditAirdropForm from '@/components/airdrop/AddEditAirdropForm';
 
 type SortOption = 'popularity' | 'date' | 'funding';
 type FilterOption = 'all' | 'active' | 'upcoming' | 'ended';
-type CategoryOption = 'all' | 'DeFi' | 'Layer 1' | 'Layer 2' | 'ZK Rollup' | 'Modular Blockchain' | 'Smart Contract Platform';
+
+// Define predefined categories
+const predefinedCategories = [
+  'Top 10 Projects',
+  'Layer 1 & Testnet Mainnet',
+  'Telegram Bot Airdrops',
+  'Daily Check-in Airdrops',
+  'Twitter Airdrops',
+  'Social Airdrops',
+  'AI Airdrops',
+  'Wallet Airdrops',
+  'Exchange Airdrops'
+];
 
 const Airdrops = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('popularity');
   const [filterStatus, setFilterStatus] = useState<FilterOption>('all');
-  const [filterCategory, setFilterCategory] = useState<CategoryOption>('all');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [allAirdrops, setAllAirdrops] = useState(airdrops);
+  const { user, isAdmin } = useAuth();
+  
+  // Load airdrops from localStorage if available
+  useEffect(() => {
+    const storedAirdrops = localStorage.getItem('publicAirdrops');
+    if (storedAirdrops) {
+      try {
+        const parsedAirdrops = JSON.parse(storedAirdrops);
+        // Merge with predefined airdrops
+        const combinedAirdrops = [...airdrops, ...parsedAirdrops];
+        // Remove duplicates by ID
+        const uniqueAirdrops = combinedAirdrops.filter((airdrop, index, self) =>
+          index === self.findIndex((a) => a.id === airdrop.id)
+        );
+        setAllAirdrops(uniqueAirdrops);
+      } catch (error) {
+        console.error('Failed to parse stored airdrops', error);
+      }
+    }
+  }, []);
+  
+  // Save airdrops to localStorage when they change
+  useEffect(() => {
+    // Only save user-added airdrops, not the predefined ones
+    const userAddedAirdrops = allAirdrops.filter(
+      airdrop => !airdrops.some(a => a.id === airdrop.id)
+    );
+    if (userAddedAirdrops.length) {
+      localStorage.setItem('publicAirdrops', JSON.stringify(userAddedAirdrops));
+    }
+  }, [allAirdrops]);
   
   // Filter airdrops
-  const filteredAirdrops = airdrops.filter((airdrop) => {
+  const filteredAirdrops = allAirdrops.filter((airdrop) => {
     // Search filter
     if (searchQuery && !airdrop.name.toLowerCase().includes(searchQuery.toLowerCase()) && 
         !airdrop.description.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -85,12 +134,62 @@ const Airdrops = () => {
     }
   };
   
-  const getCategoryLabel = (categoryOption: CategoryOption) => {
+  const getCategoryLabel = (categoryOption: string) => {
     if (categoryOption === 'all') {
       return 'All Categories';
     }
     return categoryOption;
   };
+
+  // Get all categories from airdrops data
+  const getAllCategories = () => {
+    const categoriesSet = new Set<string>();
+    
+    // Add predefined categories
+    predefinedCategories.forEach(category => categoriesSet.add(category));
+    
+    // Add categories from airdrops
+    allAirdrops.forEach(airdrop => {
+      if (airdrop.category) {
+        categoriesSet.add(airdrop.category);
+      }
+    });
+    
+    return Array.from(categoriesSet);
+  };
+
+  const handleAddAirdrop = (formData: any) => {
+    if (!user) {
+      toast.error('You must be logged in to add airdrops');
+      return;
+    }
+    
+    const now = new Date();
+    const newAirdrop = {
+      id: `user-${Math.random().toString(36).substring(2, 11)}`,
+      name: formData.name,
+      description: formData.description,
+      category: formData.category,
+      logo: formData.logo || '/placeholder.svg', // Use placeholder if no logo provided
+      status: formData.status,
+      fundingAmount: Number(formData.fundingAmount),
+      popularity: 1, // Start with low popularity
+      listingDate: now.toISOString(),
+      estimatedValue: formData.rewards,
+      website: formData.links?.[0]?.url || '',
+      telegramLink: formData.links?.find((link: any) => link.name.toLowerCase().includes('telegram'))?.url || '',
+      twitterLink: formData.links?.find((link: any) => link.name.toLowerCase().includes('twitter'))?.url || '',
+      requirements: [formData.workRequired], // Convert to requirements array
+      addedBy: user.id,
+      tokenSymbol: formData.tokenSymbol || 'TOKEN',
+    };
+    
+    setAllAirdrops([...allAirdrops, newAirdrop]);
+    setIsAddDialogOpen(false);
+    toast.success('Airdrop added successfully!');
+  };
+
+  const allCategories = getAllCategories();
 
   return (
     <div className="min-h-screen bg-crypto-black">
@@ -110,6 +209,26 @@ const Airdrops = () => {
             <p className="text-xl text-gray-300 mb-8 leading-relaxed">
               Discover and participate in the latest cryptocurrency airdrops ranked by popularity and potential value
             </p>
+            
+            {user && (
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    Add New Airdrop
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl">
+                  <DialogHeader>
+                    <DialogTitle>Add New Airdrop</DialogTitle>
+                  </DialogHeader>
+                  <AddEditAirdropForm 
+                    onSubmit={handleAddAirdrop}
+                    predefinedCategories={predefinedCategories}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
       </section>
@@ -188,28 +307,19 @@ const Airdrops = () => {
                     <ChevronDown className="w-4 h-4 ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-crypto-gray border-crypto-lightGray/30">
+                <DropdownMenuContent align="end" className="bg-crypto-gray border-crypto-lightGray/30 max-h-[300px] overflow-y-auto">
                   <DropdownMenuItem onClick={() => setFilterCategory('all')} className="hover:bg-crypto-lightGray">
                     All Categories
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('DeFi')} className="hover:bg-crypto-lightGray">
-                    DeFi
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('Layer 1')} className="hover:bg-crypto-lightGray">
-                    Layer 1
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('Layer 2')} className="hover:bg-crypto-lightGray">
-                    Layer 2
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('ZK Rollup')} className="hover:bg-crypto-lightGray">
-                    ZK Rollup
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('Modular Blockchain')} className="hover:bg-crypto-lightGray">
-                    Modular Blockchain
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterCategory('Smart Contract Platform')} className="hover:bg-crypto-lightGray">
-                    Smart Contract Platform
-                  </DropdownMenuItem>
+                  {allCategories.map((category) => (
+                    <DropdownMenuItem 
+                      key={category} 
+                      onClick={() => setFilterCategory(category)} 
+                      className="hover:bg-crypto-lightGray"
+                    >
+                      {category}
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

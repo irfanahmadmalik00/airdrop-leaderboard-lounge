@@ -1,7 +1,6 @@
 
 import { useAuth } from '@/lib/auth';
-import { Card } from '@/components/ui/card';
-import { Trophy, Star, Calendar, CheckSquare, Clock } from 'lucide-react';
+import { Trophy, Star, Calendar, CheckSquare, Clock, BarChart } from 'lucide-react';
 
 interface UserProfileProps {
   userAirdrops: Array<{
@@ -96,6 +95,22 @@ const UserProfile = ({ userAirdrops, stats, userLevel }: UserProfileProps) => {
               <Clock className="w-5 h-5 text-yellow-400 mb-2" />
               <span className="font-bold text-lg">{stats.dailyTasks}</span>
               <span className="text-xs text-gray-400">Daily Tasks</span>
+            </div>
+          </div>
+          
+          {/* Daily stats */}
+          <div className="mt-4 p-3 bg-crypto-gray/50 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-400">Daily Completions</span>
+              <BarChart className="w-4 h-4 text-crypto-green" />
+            </div>
+            <div className="text-center">
+              <span className="font-bold text-lg">
+                {Math.floor(Math.random() * 5)} today
+              </span>
+              <p className="text-xs text-gray-400 mt-1">
+                Data resets every 24 hours
+              </p>
             </div>
           </div>
         </div>

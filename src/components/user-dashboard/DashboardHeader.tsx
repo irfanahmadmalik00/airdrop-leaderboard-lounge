@@ -1,6 +1,6 @@
 
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Activity, CheckCircle, Clock, Calendar } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 
 interface DashboardHeaderProps {
@@ -24,7 +24,7 @@ const DashboardHeader = ({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
         <div>
-          <h1 className="text-3xl font-bold mb-2">My Airdrop Dashboard</h1>
+          <h1 className="text-3xl font-bold mb-2">My Crypto Dashboard</h1>
           <p className="text-gray-400">
             Welcome back, <span className="text-crypto-green font-medium">{user?.username}</span>
             {user?.level && (
@@ -47,7 +47,10 @@ const DashboardHeader = ({
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="glass-panel rounded-xl p-4">
-          <h3 className="text-sm font-medium text-gray-400 mb-1">Total Airdrops</h3>
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="text-sm font-medium text-gray-400">Total Airdrops</h3>
+            <Activity className="h-4 w-4 text-crypto-green" />
+          </div>
           <p className="text-3xl font-bold">{totalAirdrops}</p>
           <div className="mt-2 text-xs">
             <span className={completedAirdrops > 0 ? "text-crypto-green" : "text-gray-400"}>
@@ -57,7 +60,10 @@ const DashboardHeader = ({
         </div>
         
         <div className="glass-panel rounded-xl p-4">
-          <h3 className="text-sm font-medium text-gray-400 mb-1">Completion Rate</h3>
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="text-sm font-medium text-gray-400">Completion Rate</h3>
+            <CheckCircle className="h-4 w-4 text-crypto-green" />
+          </div>
           <p className="text-3xl font-bold">
             {totalAirdrops > 0 
               ? Math.round((completedAirdrops / totalAirdrops) * 100) 
@@ -76,7 +82,10 @@ const DashboardHeader = ({
         </div>
         
         <div className="glass-panel rounded-xl p-4">
-          <h3 className="text-sm font-medium text-gray-400 mb-1">Active Testnets</h3>
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="text-sm font-medium text-gray-400">Active Testnets</h3>
+            <Calendar className="h-4 w-4 text-blue-400" />
+          </div>
           <p className="text-3xl font-bold">{activeTestnets}</p>
           <div className="mt-2 text-xs">
             <span className="text-blue-400">Ongoing participation</span>
@@ -84,7 +93,10 @@ const DashboardHeader = ({
         </div>
         
         <div className="glass-panel rounded-xl p-4">
-          <h3 className="text-sm font-medium text-gray-400 mb-1">Daily Tasks</h3>
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="text-sm font-medium text-gray-400">Daily Tasks</h3>
+            <Clock className="h-4 w-4 text-yellow-400" />
+          </div>
           <p className="text-3xl font-bold">{dailyTasks}</p>
           <div className="mt-2 text-xs">
             <span className="text-yellow-400">Requires attention</span>

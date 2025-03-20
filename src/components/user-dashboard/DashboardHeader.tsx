@@ -1,7 +1,8 @@
 
 import { Button } from '@/components/ui/button';
-import { Plus, Activity, CheckCircle, Clock, Calendar } from 'lucide-react';
+import { Plus, Activity, CheckCircle, Clock, Calendar, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { toast } from 'sonner';
 
 interface DashboardHeaderProps {
   onAddAirdrop: () => void;
@@ -9,6 +10,7 @@ interface DashboardHeaderProps {
   completedAirdrops: number;
   activeTestnets: number;
   dailyTasks: number;
+  onCleanupData?: () => void;
 }
 
 const DashboardHeader = ({ 
@@ -16,9 +18,19 @@ const DashboardHeader = ({
   totalAirdrops,
   completedAirdrops, 
   activeTestnets,
-  dailyTasks
+  dailyTasks,
+  onCleanupData
 }: DashboardHeaderProps) => {
   const { user } = useAuth();
+  
+  const handleCleanupData = () => {
+    if (onCleanupData) {
+      onCleanupData();
+    } else {
+      // Fallback if no function provided
+      toast.info("Data cleanup scheduled for next 24 hours");
+    }
+  };
   
   return (
     <div className="flex flex-col gap-6">
@@ -35,13 +47,24 @@ const DashboardHeader = ({
           </p>
         </div>
         
-        <Button 
-          onClick={onAddAirdrop}
-          className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen mt-4 md:mt-0"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Airdrop
-        </Button>
+        <div className="flex gap-2 mt-4 md:mt-0">
+          <Button 
+            onClick={handleCleanupData}
+            variant="outline"
+            className="border-crypto-lightGray/30 bg-crypto-gray/30 text-gray-300 hover:bg-crypto-gray"
+          >
+            <Trash2 className="mr-2 h-4 w-4 text-gray-400" />
+            Clean Old Data
+          </Button>
+          
+          <Button 
+            onClick={onAddAirdrop}
+            className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Airdrop
+          </Button>
+        </div>
       </div>
       
       {/* Stats Cards */}

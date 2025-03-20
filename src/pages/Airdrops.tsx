@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, Award, SortAsc, ChevronDown, Clock, BarChart3, PlusCircle } from 'lucide-react';
+import { Search, Filter, Award, SortAsc, ChevronDown, Clock, BarChart3, PlusCircle, Edit, Trash2, CheckCircle, Pin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,7 +40,11 @@ const Airdrops = () => {
   const [filterStatus, setFilterStatus] = useState<FilterOption>('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [currentAirdrop, setCurrentAirdrop] = useState<any>(null);
   const [allAirdrops, setAllAirdrops] = useState(airdrops);
+  const [completedAirdrops, setCompletedAirdrops] = useState<string[]>([]);
+  const [pinnedAirdrops, setPinnedAirdrops] = useState<string[]>([]);
   const { user, isAdmin } = useAuth();
   
   // Load airdrops from localStorage if available
@@ -60,6 +64,26 @@ const Airdrops = () => {
         console.error('Failed to parse stored airdrops', error);
       }
     }
+    
+    // Load completed airdrops
+    const storedCompleted = localStorage.getItem('completedAirdrops');
+    if (storedCompleted) {
+      try {
+        setCompletedAirdrops(JSON.parse(storedCompleted));
+      } catch (error) {
+        console.error('Failed to parse completed airdrops', error);
+      }
+    }
+    
+    // Load pinned airdrops
+    const storedPinned = localStorage.getItem('pinnedAirdrops');
+    if (storedPinned) {
+      try {
+        setPinnedAirdrops(JSON.parse(storedPinned));
+      } catch (error) {
+        console.error('Failed to parse pinned airdrops', error);
+      }
+    }
   }, []);
   
   // Save airdrops to localStorage when they change
@@ -71,7 +95,26 @@ const Airdrops = () => {
     if (userAddedAirdrops.length) {
       localStorage.setItem('publicAirdrops', JSON.stringify(userAddedAirdrops));
     }
-  }, [allAirdrops]);
+    
+    // Save completed and pinned airdrops
+    localStorage.setItem('completedAirdrops', JSON.stringify(completedAirdrops));
+    localStorage.setItem('pinnedAirdrops', JSON.stringify(pinnedAirdrops));
+    
+    // Sync with UserDashboard
+    const userDashboardAirdrops = localStorage.getItem('userDashboardAirdrops');
+    if (userDashboardAirdrops) {
+      try {
+        const dashboardAirdrops = JSON.parse(userDashboardAirdrops);
+        // Update dashboard airdrops based on deleted public airdrops
+        const updatedDashboardAirdrops = dashboardAirdrops.filter((dashAirdrop: any) => 
+          allAirdrops.some(publicAirdrop => publicAirdrop.id === dashAirdrop.id)
+        );
+        localStorage.setItem('userDashboardAirdrops', JSON.stringify(updatedDashboardAirdrops));
+      } catch (error) {
+        console.error('Failed to sync dashboard airdrops', error);
+      }
+    }
+  }, [allAirdrops, completedAirdrops, pinnedAirdrops]);
   
   // Filter airdrops
   const filteredAirdrops = allAirdrops.filter((airdrop) => {
@@ -96,6 +139,11 @@ const Airdrops = () => {
   
   // Sort airdrops
   const sortedAirdrops = [...filteredAirdrops].sort((a, b) => {
+    // First sort by pinned status
+    if (pinnedAirdrops.includes(a.id) && !pinnedAirdrops.includes(b.id)) return -1;
+    if (!pinnedAirdrops.includes(a.id) && pinnedAirdrops.includes(b.id)) return 1;
+    
+    // Then by the selected sort option
     if (sortBy === 'popularity') {
       return b.popularity - a.popularity;
     } else if (sortBy === 'date') {
@@ -189,7 +237,146 @@ const Airdrops = () => {
     toast.success('Airdrop added successfully!');
   };
 
+  const handleEditAirdrop = (formData: any) => {
+    if (!currentAirdrop || !isAdmin) return;
+    
+    const updatedAirdrops = allAirdrops.map(airdrop => 
+      airdrop.id === currentAirdrop.id
+        ? { 
+            ...airdrop,
+            name: formData.name,
+            description: formData.description,
+            category: formData.category,
+            status: formData.status,
+            fundingAmount: Number(formData.fundingAmount),
+            estimatedValue: formData.rewards,
+            website: formData.links?.[0]?.url || airdrop.website,
+            telegramLink: formData.links?.find((link: any) => link.name.toLowerCase().includes('telegram'))?.url || airdrop.telegramLink,
+            twitterLink: formData.links?.find((link: any) => link.name.toLowerCase().includes('twitter'))?.url || airdrop.twitterLink,
+            requirements: [formData.workRequired],
+            tokenSymbol: formData.tokenSymbol || airdrop.tokenSymbol,
+          }
+        : airdrop
+    );
+    
+    setAllAirdrops(updatedAirdrops);
+    setIsEditDialogOpen(false);
+    setCurrentAirdrop(null);
+    toast.success('Airdrop updated successfully!');
+  };
+
+  const handleDeleteAirdrop = (id: string) => {
+    if (!isAdmin && !allAirdrops.find(a => a.id === id)?.addedBy === user?.id) {
+      toast.error('You do not have permission to delete this airdrop');
+      return;
+    }
+    
+    setAllAirdrops(allAirdrops.filter(airdrop => airdrop.id !== id));
+    toast.success('Airdrop deleted successfully!');
+    
+    // Also remove from completed and pinned lists
+    if (completedAirdrops.includes(id)) {
+      setCompletedAirdrops(completedAirdrops.filter(airdropId => airdropId !== id));
+    }
+    
+    if (pinnedAirdrops.includes(id)) {
+      setPinnedAirdrops(pinnedAirdrops.filter(airdropId => airdropId !== id));
+    }
+  };
+
+  const toggleCompletionStatus = (id: string) => {
+    if (!user) {
+      toast.error('You must be logged in to mark airdrops as completed');
+      return;
+    }
+    
+    if (completedAirdrops.includes(id)) {
+      setCompletedAirdrops(completedAirdrops.filter(airdropId => airdropId !== id));
+      toast.info('Airdrop marked as incomplete');
+    } else {
+      setCompletedAirdrops([...completedAirdrops, id]);
+      toast.success('Airdrop marked as completed!');
+    }
+  };
+
+  const togglePinStatus = (id: string) => {
+    if (!user) {
+      toast.error('You must be logged in to pin airdrops');
+      return;
+    }
+    
+    if (pinnedAirdrops.includes(id)) {
+      setPinnedAirdrops(pinnedAirdrops.filter(airdropId => airdropId !== id));
+      toast.info('Airdrop unpinned');
+    } else {
+      setPinnedAirdrops([...pinnedAirdrops, id]);
+      toast.success('Airdrop pinned!');
+    }
+  };
+
   const allCategories = getAllCategories();
+
+  // Render enhanced AirdropCard with action buttons
+  const renderAirdropCard = (airdrop: any, index: number) => {
+    const isCompleted = completedAirdrops.includes(airdrop.id);
+    const isPinned = pinnedAirdrops.includes(airdrop.id);
+    
+    return (
+      <div key={airdrop.id} className="animate-on-scroll relative">
+        {isPinned && (
+          <div className="absolute top-0 right-0 w-0 h-0 border-t-[40px] border-r-[40px] border-b-0 border-l-0 border-t-yellow-500 border-r-transparent z-10"></div>
+        )}
+        <AirdropCard airdrop={airdrop} rank={index + 1} />
+        {user && (
+          <div className="mt-2 flex flex-wrap gap-2 justify-end">
+            {(isAdmin || airdrop.addedBy === user.id) && (
+              <>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-xs border-crypto-lightGray/30 h-8"
+                  onClick={() => {
+                    setCurrentAirdrop(airdrop);
+                    setIsEditDialogOpen(true);
+                  }}
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Edit
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-xs border-crypto-lightGray/30 h-8 hover:bg-red-900/20 hover:text-red-400 hover:border-red-900/50"
+                  onClick={() => handleDeleteAirdrop(airdrop.id)}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Delete
+                </Button>
+              </>
+            )}
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className={`text-xs h-8 ${isCompleted ? 'text-green-500' : 'text-gray-400'}`}
+              onClick={() => toggleCompletionStatus(airdrop.id)}
+            >
+              <CheckCircle className="h-3 w-3 mr-1" />
+              {isCompleted ? 'Completed' : 'Complete'}
+            </Button>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className={`text-xs h-8 ${isPinned ? 'text-yellow-500' : 'text-gray-400'}`}
+              onClick={() => togglePinStatus(airdrop.id)}
+            >
+              <Pin className="h-3 w-3 mr-1" />
+              {isPinned ? 'Pinned' : 'Pin'}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-crypto-black">
@@ -394,11 +581,7 @@ const Airdrops = () => {
           
           {sortedAirdrops.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sortedAirdrops.map((airdrop, index) => (
-                <div key={airdrop.id} className="animate-on-scroll">
-                  <AirdropCard airdrop={airdrop} rank={index + 1} />
-                </div>
-              ))}
+              {sortedAirdrops.map((airdrop, index) => renderAirdropCard(airdrop, index))}
             </div>
           ) : (
             <div className="glass-panel rounded-xl p-10 text-center animate-fadeIn">
@@ -423,6 +606,36 @@ const Airdrops = () => {
           )}
         </div>
       </section>
+      
+      {/* Edit Airdrop Dialog */}
+      {currentAirdrop && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Edit Airdrop</DialogTitle>
+            </DialogHeader>
+            <AddEditAirdropForm 
+              onSubmit={handleEditAirdrop}
+              predefinedCategories={predefinedCategories}
+              initialData={{
+                name: currentAirdrop.name,
+                description: currentAirdrop.description,
+                category: currentAirdrop.category,
+                status: currentAirdrop.status,
+                fundingAmount: currentAirdrop.fundingAmount,
+                rewards: currentAirdrop.estimatedValue,
+                workRequired: currentAirdrop.requirements?.[0] || '',
+                tokenSymbol: currentAirdrop.tokenSymbol,
+                links: [
+                  { name: "Website", url: currentAirdrop.website || '' },
+                  { name: "Telegram", url: currentAirdrop.telegramLink || '' },
+                  { name: "Twitter", url: currentAirdrop.twitterLink || '' },
+                ].filter(link => link.url)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
       
       {/* Footer */}
       <footer className="py-8 px-4 border-t border-crypto-lightGray/20">

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, Award, ChevronDown, Edit, Trash, Plus, Save, X } from 'lucide-react';
+import { Search, Filter, Award, ArrowUpDown, ChevronDown, BarChart2, Pin, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,69 +10,79 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { airdrops } from '@/lib/data';
 import { useAuth } from '@/lib/auth';
-import { airdrops, Airdrop } from '@/lib/data';
-import { Textarea } from '@/components/ui/textarea';
+import AddEditAirdropForm from '@/components/airdrop/AddEditAirdropForm';
 
-interface RankedAirdrop extends Airdrop {
-  rank: number;
-  ratingScore: number;
-  potentialValue: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-}
+type SortOption = 'rank' | 'funding' | 'rewards';
+
+// Define predefined categories
+const predefinedCategories = [
+  'Top 10 Projects',
+  'Layer 1 & Testnet Mainnet',
+  'Telegram Bot Airdrops',
+  'Daily Check-in Airdrops',
+  'Twitter Airdrops',
+  'Social Airdrops',
+  'AI Airdrops',
+  'Wallet Airdrops',
+  'Exchange Airdrops'
+];
 
 const AirdropRanking = () => {
-  const { user, isAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [rankedAirdrops, setRankedAirdrops] = useState<RankedAirdrop[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingAirdrop, setEditingAirdrop] = useState<Partial<RankedAirdrop>>({});
+  const [sortBy, setSortBy] = useState<SortOption>('rank');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [allRankedAirdrops, setAllRankedAirdrops] = useState<any[]>([]);
+  const [editingAirdrop, setEditingAirdrop] = useState<any>(null);
+  const { user, isAdmin } = useAuth();
   
-  // Load ranked airdrops from localStorage or initialize from airdrops data
+  // Load airdrops from localStorage if available
   useEffect(() => {
     const storedRankings = localStorage.getItem('airdropRankings');
-    
     if (storedRankings) {
-      setRankedAirdrops(JSON.parse(storedRankings));
+      try {
+        const parsedRankings = JSON.parse(storedRankings);
+        setAllRankedAirdrops(parsedRankings);
+      } catch (error) {
+        console.error('Failed to parse stored airdrop rankings', error);
+        // Initialize with sample data if parsing fails
+        initializeWithSampleData();
+      }
     } else {
-      // Create initial rankings from airdrops data
-      const initialRankings = airdrops.map((airdrop, index) => ({
-        ...airdrop,
-        rank: index + 1,
-        ratingScore: Math.floor(Math.random() * 50) + 50, // 50-100 score
-        potentialValue: ['$10-$100', '$100-$1,000', '$1,000-$10,000'][Math.floor(Math.random() * 3)],
-        difficulty: ['Easy', 'Medium', 'Hard'][Math.floor(Math.random() * 3)] as 'Easy' | 'Medium' | 'Hard',
-      }));
-      
-      // Sort by rank
-      initialRankings.sort((a, b) => a.rank - b.rank);
-      
-      setRankedAirdrops(initialRankings);
-      localStorage.setItem('airdropRankings', JSON.stringify(initialRankings));
+      // Initialize with sample data if no data in localStorage
+      initializeWithSampleData();
     }
   }, []);
   
-  // Save rankings to localStorage whenever they change
+  // Initialize with sample data
+  const initializeWithSampleData = () => {
+    // Generate sample ranked airdrops from the existing airdrops data
+    const sampleRankings = airdrops.slice(0, 10).map((airdrop, index) => ({
+      ...airdrop,
+      rank: index + 1,
+      rating: Math.floor(Math.random() * 5) + 1,
+      reviewCount: Math.floor(Math.random() * 100) + 10,
+    }));
+    
+    setAllRankedAirdrops(sampleRankings);
+    localStorage.setItem('airdropRankings', JSON.stringify(sampleRankings));
+  };
+  
+  // Save rankings to localStorage when they change
   useEffect(() => {
-    if (rankedAirdrops.length > 0) {
-      localStorage.setItem('airdropRankings', JSON.stringify(rankedAirdrops));
+    if (allRankedAirdrops.length) {
+      localStorage.setItem('airdropRankings', JSON.stringify(allRankedAirdrops));
     }
-  }, [rankedAirdrops]);
+  }, [allRankedAirdrops]);
   
   // Filter airdrops
-  const filteredAirdrops = rankedAirdrops.filter((airdrop) => {
+  const filteredAirdrops = allRankedAirdrops.filter((airdrop) => {
     // Search filter
     if (searchQuery && !airdrop.name.toLowerCase().includes(searchQuery.toLowerCase()) && 
         !airdrop.description.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -87,102 +97,130 @@ const AirdropRanking = () => {
     return true;
   });
   
-  // Get unique categories from airdrops
-  const categories = ['all', ...new Set(rankedAirdrops.map(airdrop => airdrop.category))];
+  // Sort airdrops
+  const sortedAirdrops = [...filteredAirdrops].sort((a, b) => {
+    if (sortBy === 'rank') {
+      return a.rank - b.rank;
+    } else if (sortBy === 'funding') {
+      return b.fundingAmount - a.fundingAmount;
+    } else if (sortBy === 'rewards') {
+      return b.rating - a.rating;
+    }
+    return 0;
+  });
   
-  // Get category label
-  const getCategoryLabel = (category: string) => {
-    if (category === 'all') {
+  const getDropdownLabel = (sortOption: SortOption) => {
+    switch (sortOption) {
+      case 'rank':
+        return 'Rank';
+      case 'funding':
+        return 'Funding Amount';
+      case 'rewards':
+        return 'Reward Rating';
+      default:
+        return 'Sort By';
+    }
+  };
+  
+  const getCategoryLabel = (categoryOption: string) => {
+    if (categoryOption === 'all') {
       return 'All Categories';
     }
-    return category;
+    return categoryOption;
   };
-  
-  // Add new ranked airdrop
-  const handleAddRankedAirdrop = () => {
-    if (!editingAirdrop.name || !editingAirdrop.tokenSymbol || !editingAirdrop.category) {
-      toast.error('Please fill all required fields');
+
+  // Handle adding a new ranked airdrop
+  const handleAddRankedAirdrop = (formData: any) => {
+    if (!isAdmin) {
+      toast.error('Only admins can add to the rankings');
       return;
     }
     
-    const newRankedAirdrop: RankedAirdrop = {
-      id: `ranked-${Date.now()}`,
-      name: editingAirdrop.name || 'Unnamed Airdrop',
-      tokenSymbol: editingAirdrop.tokenSymbol || 'TOKEN',
-      logo: editingAirdrop.logo || 'https://cryptologos.cc/logos/ethereum-eth-logo.png?v=022',
-      description: editingAirdrop.description || 'No description provided',
-      fundingAmount: editingAirdrop.fundingAmount || 1000000,
-      listingDate: new Date().toISOString().split('T')[0],
-      telegramLink: editingAirdrop.telegramLink || 'https://t.me/example',
-      twitterLink: editingAirdrop.twitterLink || 'https://twitter.com/example',
-      website: editingAirdrop.website || 'https://example.com',
-      category: editingAirdrop.category || 'DeFi',
-      requirements: editingAirdrop.requirements || ['Requirement 1', 'Requirement 2'],
-      estimatedValue: editingAirdrop.estimatedValue || '$100-$1,000',
-      status: editingAirdrop.status || 'upcoming',
-      popularity: editingAirdrop.popularity || 50,
-      rank: editingAirdrop.rank || rankedAirdrops.length + 1,
-      ratingScore: editingAirdrop.ratingScore || 75,
-      potentialValue: editingAirdrop.potentialValue || '$100-$1,000',
-      difficulty: editingAirdrop.difficulty || 'Medium',
+    const now = new Date();
+    const newRankedAirdrop = {
+      id: `ranking-${Math.random().toString(36).substring(2, 11)}`,
+      name: formData.name,
+      description: formData.description,
+      category: formData.category,
+      logo: formData.logo || '/placeholder.svg',
+      status: formData.status,
+      fundingAmount: Number(formData.fundingAmount),
+      rank: allRankedAirdrops.length + 1,
+      rating: 5, // Default maximum rating for newly added
+      reviewCount: 0,
+      listingDate: now.toISOString(),
+      estimatedValue: formData.rewards,
+      website: formData.links?.[0]?.url || '',
+      telegramLink: formData.links?.find((link: any) => link.name.toLowerCase().includes('telegram'))?.url || '',
+      twitterLink: formData.links?.find((link: any) => link.name.toLowerCase().includes('twitter'))?.url || '',
+      requirements: [formData.workRequired],
+      tokenSymbol: formData.tokenSymbol || 'TOKEN',
+      links: formData.links || [],
     };
     
-    setRankedAirdrops(prev => {
-      const updated = [...prev, newRankedAirdrop];
-      // Sort by rank
-      updated.sort((a, b) => a.rank - b.rank);
-      return updated;
-    });
-    
-    toast.success('Airdrop ranking added successfully!');
-    setEditingAirdrop({});
+    setAllRankedAirdrops([...allRankedAirdrops, newRankedAirdrop]);
     setIsAddDialogOpen(false);
+    toast.success('Airdrop added to rankings successfully!');
   };
-  
-  // Update ranked airdrop
-  const handleUpdateRankedAirdrop = (id: string) => {
-    if (!editingAirdrop.name || !editingAirdrop.tokenSymbol || !editingAirdrop.category) {
-      toast.error('Please fill all required fields');
+
+  // Handle editing a ranked airdrop
+  const handleEditRankedAirdrop = (formData: any) => {
+    if (!isAdmin) {
+      toast.error('Only admins can edit the rankings');
       return;
     }
     
-    setRankedAirdrops(prev => {
-      const updated = prev.map(airdrop => {
-        if (airdrop.id === id) {
-          return {
-            ...airdrop,
-            ...editingAirdrop,
-          } as RankedAirdrop;
-        }
-        return airdrop;
-      });
-      
-      // Sort by rank
-      updated.sort((a, b) => a.rank - b.rank);
-      return updated;
-    });
+    if (!editingAirdrop) return;
     
-    toast.success('Airdrop ranking updated successfully!');
-    setEditingAirdrop({});
-    setIsEditing(false);
+    const updatedAirdrops = allRankedAirdrops.map(airdrop => 
+      airdrop.id === editingAirdrop.id 
+        ? {
+            ...airdrop,
+            name: formData.name,
+            description: formData.description,
+            category: formData.category,
+            logo: formData.logo,
+            status: formData.status,
+            fundingAmount: Number(formData.fundingAmount),
+            estimatedValue: formData.rewards,
+            tokenSymbol: formData.tokenSymbol,
+            links: formData.links,
+          }
+        : airdrop
+    );
+    
+    setAllRankedAirdrops(updatedAirdrops);
+    setEditingAirdrop(null);
+    toast.success('Ranking updated successfully!');
   };
-  
-  // Delete ranked airdrop
+
+  // Handle deleting a ranked airdrop
   const handleDeleteRankedAirdrop = (id: string) => {
-    setRankedAirdrops(prev => prev.filter(airdrop => airdrop.id !== id));
-    toast.success('Airdrop ranking deleted successfully!');
+    if (!isAdmin) {
+      toast.error('Only admins can delete from the rankings');
+      return;
+    }
+    
+    const updatedAirdrops = allRankedAirdrops.filter(airdrop => airdrop.id !== id);
+    // Recalculate ranks
+    const rerankedAirdrops = updatedAirdrops.map((airdrop, index) => ({
+      ...airdrop,
+      rank: index + 1
+    }));
+    
+    setAllRankedAirdrops(rerankedAirdrops);
+    toast.success('Airdrop removed from rankings');
   };
-  
-  // Edit ranked airdrop
-  const startEditingRankedAirdrop = (airdrop: RankedAirdrop) => {
+
+  // Start editing a ranked airdrop
+  const startEditing = (airdrop: any) => {
+    if (!isAdmin) {
+      toast.error('Only admins can edit the rankings');
+      return;
+    }
+    
     setEditingAirdrop(airdrop);
-    setIsEditing(true);
-  };
-  
-  // Cancel editing
-  const cancelEditing = () => {
-    setEditingAirdrop({});
-    setIsEditing(false);
+    setIsAddDialogOpen(true);
   };
 
   return (
@@ -201,8 +239,32 @@ const AirdropRanking = () => {
               <span className="text-crypto-green">Rankings</span>
             </h1>
             <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-              Discover the top-rated airdrops ranked by potential value, difficulty, and overall score
+              The top crypto airdrops ranked by value, funding, and potential rewards
             </p>
+            
+            {isAdmin && (
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
+                    <Plus className="h-5 w-5 mr-2" />
+                    Add To Rankings
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingAirdrop ? 'Edit Ranked Airdrop' : 'Add Airdrop to Rankings'}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <AddEditAirdropForm 
+                    onSubmit={editingAirdrop ? handleEditRankedAirdrop : handleAddRankedAirdrop}
+                    isEditing={!!editingAirdrop}
+                    currentAirdrop={editingAirdrop}
+                    predefinedCategories={predefinedCategories}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
       </section>
@@ -214,7 +276,7 @@ const AirdropRanking = () => {
             <div className="w-full md:w-1/3 relative">
               <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
               <Input
-                placeholder="Search airdrops..."
+                placeholder="Search rankings..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 bg-crypto-gray border-crypto-lightGray/30 focus:border-crypto-green focus:ring-crypto-green/20"
@@ -222,6 +284,31 @@ const AirdropRanking = () => {
             </div>
             
             <div className="flex flex-wrap md:flex-nowrap gap-3">
+              {/* Sort Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="border-crypto-lightGray/30 bg-crypto-gray">
+                    <ArrowUpDown className="w-4 h-4 mr-2" />
+                    {getDropdownLabel(sortBy)}
+                    <ChevronDown className="w-4 h-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-crypto-gray border-crypto-lightGray/30">
+                  <DropdownMenuItem onClick={() => setSortBy('rank')} className="hover:bg-crypto-lightGray">
+                    <Pin className="w-4 h-4 mr-2" />
+                    Rank
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy('funding')} className="hover:bg-crypto-lightGray">
+                    <BarChart2 className="w-4 h-4 mr-2" />
+                    Funding Amount
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy('rewards')} className="hover:bg-crypto-lightGray">
+                    <Award className="w-4 h-4 mr-2" />
+                    Reward Rating
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
               {/* Category Filter */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -231,153 +318,21 @@ const AirdropRanking = () => {
                     <ChevronDown className="w-4 h-4 ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-crypto-gray border-crypto-lightGray/30">
-                  {categories.map((category) => (
+                <DropdownMenuContent align="end" className="bg-crypto-gray border-crypto-lightGray/30 max-h-[300px] overflow-y-auto">
+                  <DropdownMenuItem onClick={() => setFilterCategory('all')} className="hover:bg-crypto-lightGray">
+                    All Categories
+                  </DropdownMenuItem>
+                  {predefinedCategories.map((category) => (
                     <DropdownMenuItem 
                       key={category} 
-                      onClick={() => setFilterCategory(category)}
+                      onClick={() => setFilterCategory(category)} 
                       className="hover:bg-crypto-lightGray"
                     >
-                      {getCategoryLabel(category)}
+                      {category}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              
-              {/* Add Airdrop Ranking Button (Admin Only) */}
-              {isAdmin && (
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Ranking
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-crypto-gray border-crypto-lightGray/30 max-w-xl">
-                    <DialogHeader>
-                      <DialogTitle className="text-xl font-bold">Add New Airdrop Ranking</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                      <Input
-                        placeholder="Airdrop Name"
-                        value={editingAirdrop.name || ''}
-                        onChange={(e) => setEditingAirdrop({ ...editingAirdrop, name: e.target.value })}
-                        className="bg-crypto-black/50 border-crypto-lightGray/30"
-                      />
-                      <Input
-                        placeholder="Token Symbol"
-                        value={editingAirdrop.tokenSymbol || ''}
-                        onChange={(e) => setEditingAirdrop({ ...editingAirdrop, tokenSymbol: e.target.value })}
-                        className="bg-crypto-black/50 border-crypto-lightGray/30"
-                      />
-                      <Input
-                        placeholder="Logo URL"
-                        value={editingAirdrop.logo || ''}
-                        onChange={(e) => setEditingAirdrop({ ...editingAirdrop, logo: e.target.value })}
-                        className="bg-crypto-black/50 border-crypto-lightGray/30"
-                      />
-                      <Input
-                        placeholder="Website"
-                        value={editingAirdrop.website || ''}
-                        onChange={(e) => setEditingAirdrop({ ...editingAirdrop, website: e.target.value })}
-                        className="bg-crypto-black/50 border-crypto-lightGray/30"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Rank (1-100)"
-                        value={editingAirdrop.rank || ''}
-                        onChange={(e) => setEditingAirdrop({ ...editingAirdrop, rank: Number(e.target.value) })}
-                        className="bg-crypto-black/50 border-crypto-lightGray/30"
-                        min="1" 
-                        max="100"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Rating Score (1-100)"
-                        value={editingAirdrop.ratingScore || ''}
-                        onChange={(e) => setEditingAirdrop({ ...editingAirdrop, ratingScore: Number(e.target.value) })}
-                        className="bg-crypto-black/50 border-crypto-lightGray/30"
-                        min="1" 
-                        max="100"
-                      />
-                      <Input
-                        placeholder="Potential Value (e.g. $100-$1,000)"
-                        value={editingAirdrop.potentialValue || ''}
-                        onChange={(e) => setEditingAirdrop({ ...editingAirdrop, potentialValue: e.target.value })}
-                        className="bg-crypto-black/50 border-crypto-lightGray/30"
-                      />
-                      <select
-                        value={editingAirdrop.category || ''}
-                        onChange={(e) => setEditingAirdrop({ ...editingAirdrop, category: e.target.value })}
-                        className="bg-crypto-black/50 border-crypto-lightGray/30 rounded-md p-2 text-white"
-                      >
-                        <option value="" disabled>Select Category</option>
-                        <option value="DeFi">DeFi</option>
-                        <option value="Layer 1">Layer 1</option>
-                        <option value="Layer 2">Layer 2</option>
-                        <option value="ZK Rollup">ZK Rollup</option>
-                        <option value="Modular Blockchain">Modular Blockchain</option>
-                        <option value="Smart Contract Platform">Smart Contract Platform</option>
-                        <option value="Top 10 Projects">Top 10 Projects</option>
-                        <option value="Testnet Mainnet">Testnet Mainnet</option>
-                        <option value="Telegram Bot Airdrops">Telegram Bot Airdrops</option>
-                        <option value="Daily Check-in Airdrops">Daily Check-in Airdrops</option>
-                        <option value="Twitter Airdrops">Twitter Airdrops</option>
-                        <option value="Social Airdrops">Social Airdrops</option>
-                        <option value="AI Airdrops">AI Airdrops</option>
-                        <option value="Wallet Airdrops">Wallet Airdrops</option>
-                        <option value="Exchange Airdrops">Exchange Airdrops</option>
-                      </select>
-                      <select
-                        value={editingAirdrop.difficulty || ''}
-                        onChange={(e) => setEditingAirdrop({ ...editingAirdrop, difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard' })}
-                        className="bg-crypto-black/50 border-crypto-lightGray/30 rounded-md p-2 text-white"
-                      >
-                        <option value="" disabled>Select Difficulty</option>
-                        <option value="Easy">Easy</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Hard">Hard</option>
-                      </select>
-                      <select
-                        value={editingAirdrop.status || ''}
-                        onChange={(e) => setEditingAirdrop({ ...editingAirdrop, status: e.target.value as 'upcoming' | 'active' | 'ended' })}
-                        className="bg-crypto-black/50 border-crypto-lightGray/30 rounded-md p-2 text-white"
-                      >
-                        <option value="" disabled>Select Status</option>
-                        <option value="upcoming">Upcoming</option>
-                        <option value="active">Active</option>
-                        <option value="ended">Ended</option>
-                      </select>
-                      <div className="md:col-span-2">
-                        <Textarea
-                          placeholder="Description"
-                          value={editingAirdrop.description || ''}
-                          onChange={(e) => setEditingAirdrop({ ...editingAirdrop, description: e.target.value })}
-                          className="bg-crypto-black/50 border-crypto-lightGray/30 min-h-[100px]"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter className="mt-4">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          setIsAddDialogOpen(false);
-                          setEditingAirdrop({});
-                        }}
-                        className="border-crypto-lightGray/30"
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={handleAddRankedAirdrop}
-                        className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
-                      >
-                        Add Ranking
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
             </div>
           </div>
           
@@ -423,285 +378,159 @@ const AirdropRanking = () => {
         </div>
       </section>
       
-      {/* Rankings Table */}
+      {/* Results Section */}
       <section className="py-10 px-4">
         <div className="container mx-auto">
-          <div className="glass-panel rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-crypto-lightGray/20">
-                    <th className="px-6 py-4 text-left text-sm font-medium">Rank</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium">Airdrop</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium">Category</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium">Status</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium">Rating</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium">Value</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium">Difficulty</th>
-                    {isAdmin && <th className="px-6 py-4 text-right text-sm font-medium">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAirdrops.map((airdrop) => (
-                    <tr 
-                      key={airdrop.id} 
-                      className="border-b border-crypto-lightGray/10 hover:bg-crypto-gray/10 transition-colors"
-                    >
-                      {/* Rank */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-crypto-gray/60">
-                          <span className="text-sm font-bold">{airdrop.rank}</span>
-                        </div>
-                      </td>
-                      
-                      {/* Airdrop */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <img 
-                            src={airdrop.logo} 
-                            alt={airdrop.name} 
-                            className="w-8 h-8 rounded-full mr-3 border border-crypto-lightGray/20"
-                          />
-                          <div>
-                            <div className="font-medium">{airdrop.name}</div>
-                            <div className="text-sm text-gray-400">{airdrop.tokenSymbol}</div>
-                          </div>
-                        </div>
-                      </td>
-                      
-                      {/* Category */}
-                      <td className="px-6 py-4">
-                        <Badge variant="outline" className="font-normal">
-                          {airdrop.category}
-                        </Badge>
-                      </td>
-                      
-                      {/* Status */}
-                      <td className="px-6 py-4">
-                        <Badge 
-                          className={`font-normal ${
-                            airdrop.status === 'active' 
-                              ? 'bg-green-500/20 text-green-500 border-green-500/30'
-                              : airdrop.status === 'upcoming'
-                                ? 'bg-blue-500/20 text-blue-500 border-blue-500/30'
-                                : 'bg-gray-500/20 text-gray-500 border-gray-500/30'
-                          }`}
-                        >
-                          {airdrop.status.charAt(0).toUpperCase() + airdrop.status.slice(1)}
-                        </Badge>
-                      </td>
-                      
-                      {/* Rating */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="w-16 h-2 bg-crypto-gray/30 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-crypto-green"
-                              style={{ width: `${airdrop.ratingScore}%` }}
-                            ></div>
-                          </div>
-                          <span className="ml-2 text-sm">{airdrop.ratingScore}/100</span>
-                        </div>
-                      </td>
-                      
-                      {/* Value */}
-                      <td className="px-6 py-4">
-                        <span className="text-crypto-green">{airdrop.potentialValue}</span>
-                      </td>
-                      
-                      {/* Difficulty */}
-                      <td className="px-6 py-4">
-                        <Badge 
-                          className={`font-normal ${
-                            airdrop.difficulty === 'Easy' 
-                              ? 'bg-green-500/20 text-green-500 border-green-500/30'
-                              : airdrop.difficulty === 'Medium'
-                                ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30'
-                                : 'bg-red-500/20 text-red-500 border-red-500/30'
-                          }`}
-                        >
-                          {airdrop.difficulty}
-                        </Badge>
-                      </td>
-                      
-                      {/* Actions (Admin Only) */}
-                      {isAdmin && (
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => startEditingRankedAirdrop(airdrop)}
-                              className="text-gray-400 hover:text-crypto-green"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteRankedAirdrop(airdrop.id)}
-                              className="text-gray-400 hover:text-red-500"
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold">{sortedAirdrops.length} Ranked Airdrops</h2>
+            <p className="text-gray-400">
+              {sortBy === 'rank' && 'Sorted by official ranking'}
+              {sortBy === 'funding' && 'Sorted by highest funding amount'}
+              {sortBy === 'rewards' && 'Sorted by highest reward rating'}
+            </p>
           </div>
           
-          {filteredAirdrops.length === 0 && (
-            <div className="text-center py-12">
-              <Award className="mx-auto h-12 w-12 text-gray-500 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No Rankings Found</h3>
-              <p className="text-gray-400 mb-6">
-                We couldn't find any airdrop rankings matching your criteria.
-              </p>
-              <Button 
-                onClick={() => {
-                  setFilterCategory('all');
-                  setSearchQuery('');
-                }}
-                className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
-              >
-                Clear Filters
-              </Button>
+          {sortedAirdrops.length > 0 ? (
+            <div className="space-y-4">
+              {sortedAirdrops.map((airdrop) => (
+                <Card key={airdrop.id} className="bg-crypto-gray border-crypto-lightGray/30 animate-on-scroll">
+                  <CardHeader className="flex flex-row items-center gap-4 pb-2">
+                    <div className="flex items-center justify-center bg-crypto-green/10 w-12 h-12 rounded-full">
+                      <span className="text-xl font-bold text-crypto-green">{airdrop.rank}</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-xl">{airdrop.name}</CardTitle>
+                          <CardDescription className="text-gray-400 mt-1">
+                            {airdrop.category}
+                          </CardDescription>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <Badge className={`${getStatusColor(airdrop.status)}`}>
+                            {airdrop.status.charAt(0).toUpperCase() + airdrop.status.slice(1)}
+                          </Badge>
+                          <div className="flex items-center mt-2">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <span key={i} className={`h-4 w-4 ${i < airdrop.rating ? 'text-yellow-400' : 'text-gray-600'}`}>★</span>
+                            ))}
+                            <span className="text-xs text-gray-400 ml-2">({airdrop.reviewCount})</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="py-2">
+                    <p className="text-sm text-gray-300 mb-3">
+                      {airdrop.description}
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-400">Funding</p>
+                        <p className="font-medium">${airdrop.fundingAmount.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Token</p>
+                        <p className="font-medium">{airdrop.tokenSymbol}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Est. Value</p>
+                        <p className="font-medium">{airdrop.estimatedValue}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Listed</p>
+                        <p className="font-medium">{new Date(airdrop.listingDate).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="pt-2 flex justify-between flex-wrap gap-2">
+                    <div className="flex gap-2">
+                      {isAdmin && (
+                        <>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-xs border-crypto-lightGray/30 h-8"
+                            onClick={() => startEditing(airdrop)}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-xs border-crypto-lightGray/30 h-8 hover:bg-red-900/20 hover:text-red-400 hover:border-red-900/50"
+                            onClick={() => handleDeleteRankedAirdrop(airdrop.id)}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {airdrop.website && (
+                        <a 
+                          href={airdrop.website} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="inline-flex items-center text-xs px-3 py-1 h-8 rounded-md text-crypto-green hover:bg-crypto-green/10 transition-colors"
+                        >
+                          Visit Website
+                        </a>
+                      )}
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="glass-panel rounded-xl p-10 text-center animate-fadeIn">
+              <div className="flex flex-col items-center">
+                <Award className="h-12 w-12 text-gray-500 mb-4" />
+                <h3 className="text-xl font-semibold mb-2">No Ranked Airdrops Found</h3>
+                <p className="text-gray-400 mb-6">
+                  We couldn't find any ranked airdrops matching your search criteria.
+                </p>
+                <Button 
+                  onClick={() => {
+                    setFilterCategory('all');
+                    setSearchQuery('');
+                  }}
+                  className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
+                >
+                  Clear Filters
+                </Button>
+              </div>
             </div>
           )}
         </div>
       </section>
       
-      {/* Edit Dialog (Admin Only) */}
-      {isAdmin && isEditing && (
-        <Dialog open={isEditing} onOpenChange={setIsEditing}>
-          <DialogContent className="bg-crypto-gray border-crypto-lightGray/30 max-w-xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">Edit Airdrop Ranking</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <Input
-                placeholder="Airdrop Name"
-                value={editingAirdrop.name || ''}
-                onChange={(e) => setEditingAirdrop({ ...editingAirdrop, name: e.target.value })}
-                className="bg-crypto-black/50 border-crypto-lightGray/30"
-              />
-              <Input
-                placeholder="Token Symbol"
-                value={editingAirdrop.tokenSymbol || ''}
-                onChange={(e) => setEditingAirdrop({ ...editingAirdrop, tokenSymbol: e.target.value })}
-                className="bg-crypto-black/50 border-crypto-lightGray/30"
-              />
-              <Input
-                placeholder="Logo URL"
-                value={editingAirdrop.logo || ''}
-                onChange={(e) => setEditingAirdrop({ ...editingAirdrop, logo: e.target.value })}
-                className="bg-crypto-black/50 border-crypto-lightGray/30"
-              />
-              <Input
-                placeholder="Website"
-                value={editingAirdrop.website || ''}
-                onChange={(e) => setEditingAirdrop({ ...editingAirdrop, website: e.target.value })}
-                className="bg-crypto-black/50 border-crypto-lightGray/30"
-              />
-              <Input
-                type="number"
-                placeholder="Rank (1-100)"
-                value={editingAirdrop.rank || ''}
-                onChange={(e) => setEditingAirdrop({ ...editingAirdrop, rank: Number(e.target.value) })}
-                className="bg-crypto-black/50 border-crypto-lightGray/30"
-                min="1" 
-                max="100"
-              />
-              <Input
-                type="number"
-                placeholder="Rating Score (1-100)"
-                value={editingAirdrop.ratingScore || ''}
-                onChange={(e) => setEditingAirdrop({ ...editingAirdrop, ratingScore: Number(e.target.value) })}
-                className="bg-crypto-black/50 border-crypto-lightGray/30"
-                min="1" 
-                max="100"
-              />
-              <Input
-                placeholder="Potential Value (e.g. $100-$1,000)"
-                value={editingAirdrop.potentialValue || ''}
-                onChange={(e) => setEditingAirdrop({ ...editingAirdrop, potentialValue: e.target.value })}
-                className="bg-crypto-black/50 border-crypto-lightGray/30"
-              />
-              <select
-                value={editingAirdrop.category || ''}
-                onChange={(e) => setEditingAirdrop({ ...editingAirdrop, category: e.target.value })}
-                className="bg-crypto-black/50 border-crypto-lightGray/30 rounded-md p-2 text-white"
-              >
-                <option value="" disabled>Select Category</option>
-                <option value="DeFi">DeFi</option>
-                <option value="Layer 1">Layer 1</option>
-                <option value="Layer 2">Layer 2</option>
-                <option value="ZK Rollup">ZK Rollup</option>
-                <option value="Modular Blockchain">Modular Blockchain</option>
-                <option value="Smart Contract Platform">Smart Contract Platform</option>
-                <option value="Top 10 Projects">Top 10 Projects</option>
-                <option value="Testnet Mainnet">Testnet Mainnet</option>
-                <option value="Telegram Bot Airdrops">Telegram Bot Airdrops</option>
-                <option value="Daily Check-in Airdrops">Daily Check-in Airdrops</option>
-                <option value="Twitter Airdrops">Twitter Airdrops</option>
-                <option value="Social Airdrops">Social Airdrops</option>
-                <option value="AI Airdrops">AI Airdrops</option>
-                <option value="Wallet Airdrops">Wallet Airdrops</option>
-                <option value="Exchange Airdrops">Exchange Airdrops</option>
-              </select>
-              <select
-                value={editingAirdrop.difficulty || ''}
-                onChange={(e) => setEditingAirdrop({ ...editingAirdrop, difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard' })}
-                className="bg-crypto-black/50 border-crypto-lightGray/30 rounded-md p-2 text-white"
-              >
-                <option value="" disabled>Select Difficulty</option>
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-              </select>
-              <select
-                value={editingAirdrop.status || ''}
-                onChange={(e) => setEditingAirdrop({ ...editingAirdrop, status: e.target.value as 'upcoming' | 'active' | 'ended' })}
-                className="bg-crypto-black/50 border-crypto-lightGray/30 rounded-md p-2 text-white"
-              >
-                <option value="" disabled>Select Status</option>
-                <option value="upcoming">Upcoming</option>
-                <option value="active">Active</option>
-                <option value="ended">Ended</option>
-              </select>
-              <div className="md:col-span-2">
-                <Textarea
-                  placeholder="Description"
-                  value={editingAirdrop.description || ''}
-                  onChange={(e) => setEditingAirdrop({ ...editingAirdrop, description: e.target.value })}
-                  className="bg-crypto-black/50 border-crypto-lightGray/30 min-h-[100px]"
-                />
-              </div>
-            </div>
-            <DialogFooter className="mt-4">
-              <Button 
-                variant="outline" 
-                onClick={cancelEditing}
-                className="border-crypto-lightGray/30"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={() => handleUpdateRankedAirdrop(editingAirdrop.id as string)}
-                className="bg-crypto-green text-crypto-black hover:bg-crypto-darkGreen"
-              >
-                Update Ranking
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* Footer */}
+      <footer className="py-8 px-4 border-t border-crypto-lightGray/20">
+        <div className="container mx-auto text-center">
+          <p className="text-gray-500 text-sm">
+            © 2023 iShowCrypto. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </div>
   );
+};
+
+// Helper function to get status color for badges
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'active':
+      return 'bg-green-500/20 text-green-400 border-green-500/30';
+    case 'upcoming':
+      return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+    case 'ended':
+      return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    default:
+      return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+  }
 };
 
 export default AirdropRanking;

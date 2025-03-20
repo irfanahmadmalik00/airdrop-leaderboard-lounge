@@ -79,11 +79,16 @@ const AppRoutes = () => {
   
   return (
     <Routes>
-      {/* If user is logged in, redirect to dashboard, otherwise show landing page */}
-      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <SuspenseWrapper><Index /></SuspenseWrapper>} />
+      {/* Public routes */}
+      <Route path="/" element={<SuspenseWrapper><Index /></SuspenseWrapper>} />
       <Route path="/airdrops" element={<SuspenseWrapper><Airdrops /></SuspenseWrapper>} />
       <Route path="/airdrops-ranking" element={<SuspenseWrapper><AirdropRanking /></SuspenseWrapper>} />
       <Route path="/videos" element={<SuspenseWrapper><Videos /></SuspenseWrapper>} />
+      <Route path="/about" element={<SuspenseWrapper><AboutUs /></SuspenseWrapper>} />
+      <Route path="/how-it-works" element={<SuspenseWrapper><HowItWorks /></SuspenseWrapper>} />
+      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <SuspenseWrapper><Login /></SuspenseWrapper>} />
+      
+      {/* Protected routes */}
       <Route path="/testnets" element={
         <SuspenseWrapper>
           <AuthenticatedRoute>
@@ -91,8 +96,13 @@ const AppRoutes = () => {
           </AuthenticatedRoute>
         </SuspenseWrapper>
       } />
-      <Route path="/tools" element={<SuspenseWrapper><Tools /></SuspenseWrapper>} />
-      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <SuspenseWrapper><Login /></SuspenseWrapper>} />
+      <Route path="/tools" element={
+        <SuspenseWrapper>
+          <AuthenticatedRoute>
+            <Tools />
+          </AuthenticatedRoute>
+        </SuspenseWrapper>
+      } />
       <Route path="/dashboard" element={
         <SuspenseWrapper>
           <AuthenticatedRoute>
@@ -107,8 +117,8 @@ const AppRoutes = () => {
           </AdminRoute>
         </SuspenseWrapper>
       } />
-      <Route path="/about" element={<SuspenseWrapper><AboutUs /></SuspenseWrapper>} />
-      <Route path="/how-it-works" element={<SuspenseWrapper><HowItWorks /></SuspenseWrapper>} />
+      
+      {/* Catch-all route */}
       <Route path="*" element={<SuspenseWrapper><NotFound /></SuspenseWrapper>} />
     </Routes>
   );
@@ -120,9 +130,9 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
+            <AppRoutes />
             <Toaster />
             <Sonner position="top-right" />
-            <AppRoutes />
           </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>

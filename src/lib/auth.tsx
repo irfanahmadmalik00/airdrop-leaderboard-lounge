@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentMathQuestion, setCurrentMathQuestion] = useState<{ question: string, answer: number } | null>(null);
 
-  // Generate a random device ID if not exists
+  // Generate a device ID for security
   const getDeviceId = () => {
     let deviceId = localStorage.getItem('deviceId');
     if (!deviceId) {
@@ -104,16 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        
-        // Check if user is logging in from the same device
-        const currentDeviceId = getDeviceId();
-        if (parsedUser.deviceId && parsedUser.deviceId !== currentDeviceId) {
-          // Device ID mismatch - don't log in
-          localStorage.removeItem('cryptoUser');
-          toast.error('Security alert: Please login again from this device');
-        } else {
-          setUser(parsedUser);
-        }
+        setUser(parsedUser);
       } catch (error) {
         console.error('Failed to parse stored user', error);
         localStorage.removeItem('cryptoUser');
@@ -156,11 +147,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       let users = storedUsers ? JSON.parse(storedUsers) : [];
       
       const existingUser = users.find(
-        (u: User) => u.email === email || u.username === username
+        (u: User) => u.email.toLowerCase() === email.toLowerCase() || u.username.toLowerCase() === username.toLowerCase()
       );
       
       if (existingUser) {
-        if (existingUser.email === email) {
+        if (existingUser.email.toLowerCase() === email.toLowerCase()) {
           throw new Error('User with this email already exists');
         } else {
           throw new Error('Username is already taken');
@@ -268,7 +259,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         let users = storedUsers ? JSON.parse(storedUsers) : [];
         
         const adminExists = users.find(
-          (u: User) => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()
+          (u: any) => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()
         );
         
         if (!adminExists) {
@@ -290,7 +281,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const existingUser = users.find(
         (u: any) => 
           (u.email.toLowerCase() === usernameOrEmail.toLowerCase() || 
-           u.username === usernameOrEmail) && 
+           u.username.toLowerCase() === usernameOrEmail.toLowerCase()) && 
           u.password === password
       );
       
@@ -298,19 +289,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('Invalid credentials. Please try again.');
       }
       
-      // Update device ID for security
+      // Update user with current device ID but preserve other attributes
       const deviceId = getDeviceId();
-      const userWithDevice = {...existingUser, deviceId};
-      delete userWithDevice.password; // Don't store password in session
+      const userToSave = {...existingUser, deviceId};
+      delete userToSave.password; // Don't store password in session
       
-      // Update user in registered users
+      // Update registeredUsers with new device ID
       const updatedUsers = users.map((u: any) => 
         u.id === existingUser.id ? {...u, deviceId} : u
       );
       localStorage.setItem('registeredUsers', JSON.stringify(updatedUsers));
       
-      setUser(userWithDevice);
-      localStorage.setItem('cryptoUser', JSON.stringify(userWithDevice));
+      setUser(userToSave);
+      localStorage.setItem('cryptoUser', JSON.stringify(userToSave));
       
       // Generate new math question for next login
       generateMathQuestion();

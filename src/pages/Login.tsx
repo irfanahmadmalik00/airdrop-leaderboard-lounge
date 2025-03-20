@@ -18,10 +18,11 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  const [inviteCode, setInviteCode] = useState('ishowcryptoairdrops');
   const [mathAnswer, setMathAnswer] = useState<number | ''>('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
+  const [error, setError] = useState('');
   
   // Init math question
   useEffect(() => {
@@ -36,16 +37,18 @@ const Login = () => {
     setEmail('');
     setUsername('');
     setPassword('');
-    setInviteCode('');
+    setInviteCode('ishowcryptoairdrops');
     setMathAnswer('');
+    setError('');
     generateMathQuestion();
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     
     if (!username || !password || !inviteCode || mathAnswer === '') {
-      toast.error('All fields are required');
+      setError('All fields are required');
       return;
     }
     
@@ -55,8 +58,11 @@ const Login = () => {
       await login(username, password, inviteCode, Number(mathAnswer));
       navigate('/dashboard');
     } catch (error) {
-      // Error is already handled in login function
-      console.error('Login error:', error);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -64,9 +70,10 @@ const Login = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     
     if (!email || !username || !password || !inviteCode || mathAnswer === '') {
-      toast.error('All fields are required');
+      setError('All fields are required');
       return;
     }
     
@@ -76,8 +83,11 @@ const Login = () => {
       await register(email, username, password, inviteCode, Number(mathAnswer));
       navigate('/dashboard');
     } catch (error) {
-      // Error is already handled in register function
-      console.error('Registration error:', error);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Registration failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -99,6 +109,13 @@ const Login = () => {
               Sign in to access exclusive crypto airdrops and submit your own
             </p>
           </div>
+          
+          {error && (
+            <Alert variant="destructive" className="mb-4 bg-red-900/40 border-red-500/50">
+              <AlertCircle className="h-4 w-4 text-red-500" />
+              <AlertDescription className="text-red-200">{error}</AlertDescription>
+            </Alert>
+          )}
           
           <Tabs defaultValue="login" value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -134,7 +151,7 @@ const Login = () => {
                   <div className="relative">
                     <LockKeyhole className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <Input
-                      type="password"
+                      type="text"
                       placeholder="Invitation Code"
                       value={inviteCode}
                       onChange={(e) => setInviteCode(e.target.value)}
@@ -222,7 +239,7 @@ const Login = () => {
                   <div className="relative">
                     <LockKeyhole className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <Input
-                      type="password"
+                      type="text"
                       placeholder="Invitation Code"
                       value={inviteCode}
                       onChange={(e) => setInviteCode(e.target.value)}
@@ -276,7 +293,7 @@ const Login = () => {
                 <Alert className="bg-crypto-gray/80 border-crypto-green/30">
                   <AlertCircle className="h-4 w-4 text-crypto-green" />
                   <AlertDescription className="text-xs text-gray-300">
-                    To register, you need an invitation code.
+                    To register, you need an invitation code. Default: <span className="text-crypto-green font-medium">ishowcryptoairdrops</span>
                   </AlertDescription>
                 </Alert>
               </form>

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 import { Suspense, lazy } from "react";
+import Navbar from "@/components/Navbar";
 
 // Lazy load pages to improve performance
 const Index = lazy(() => import("./pages/Index"));
@@ -78,49 +79,54 @@ const AppRoutes = () => {
   const { user } = useAuth();
   
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<SuspenseWrapper><Index /></SuspenseWrapper>} />
-      <Route path="/airdrops" element={<SuspenseWrapper><Airdrops /></SuspenseWrapper>} />
-      <Route path="/airdrops-ranking" element={<SuspenseWrapper><AirdropRanking /></SuspenseWrapper>} />
-      <Route path="/videos" element={<SuspenseWrapper><Videos /></SuspenseWrapper>} />
-      <Route path="/about" element={<SuspenseWrapper><AboutUs /></SuspenseWrapper>} />
-      <Route path="/how-it-works" element={<SuspenseWrapper><HowItWorks /></SuspenseWrapper>} />
-      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <SuspenseWrapper><Login /></SuspenseWrapper>} />
-      
-      {/* Protected routes */}
-      <Route path="/testnets" element={
-        <SuspenseWrapper>
-          <AuthenticatedRoute>
-            <Testnets />
-          </AuthenticatedRoute>
-        </SuspenseWrapper>
-      } />
-      <Route path="/tools" element={
-        <SuspenseWrapper>
-          <AuthenticatedRoute>
-            <Tools />
-          </AuthenticatedRoute>
-        </SuspenseWrapper>
-      } />
-      <Route path="/dashboard" element={
-        <SuspenseWrapper>
-          <AuthenticatedRoute>
-            <UserDashboard />
-          </AuthenticatedRoute>
-        </SuspenseWrapper>
-      } />
-      <Route path="/admin" element={
-        <SuspenseWrapper>
-          <AdminRoute>
-            <AdminDashboard />
-          </AdminRoute>
-        </SuspenseWrapper>
-      } />
-      
-      {/* Catch-all route */}
-      <Route path="*" element={<SuspenseWrapper><NotFound /></SuspenseWrapper>} />
-    </Routes>
+    <>
+      <Navbar />
+      <div className="pt-16 min-h-screen bg-crypto-black">
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<SuspenseWrapper><Index /></SuspenseWrapper>} />
+          <Route path="/airdrops" element={<SuspenseWrapper><Airdrops /></SuspenseWrapper>} />
+          <Route path="/airdrops-ranking" element={<SuspenseWrapper><AirdropRanking /></SuspenseWrapper>} />
+          <Route path="/videos" element={<SuspenseWrapper><Videos /></SuspenseWrapper>} />
+          <Route path="/about" element={<SuspenseWrapper><AboutUs /></SuspenseWrapper>} />
+          <Route path="/how-it-works" element={<SuspenseWrapper><HowItWorks /></SuspenseWrapper>} />
+          <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <SuspenseWrapper><Login /></SuspenseWrapper>} />
+          
+          {/* Protected routes */}
+          <Route path="/testnets" element={
+            <SuspenseWrapper>
+              <AuthenticatedRoute>
+                <Testnets />
+              </AuthenticatedRoute>
+            </SuspenseWrapper>
+          } />
+          <Route path="/tools" element={
+            <SuspenseWrapper>
+              <AuthenticatedRoute>
+                <Tools />
+              </AuthenticatedRoute>
+            </SuspenseWrapper>
+          } />
+          <Route path="/dashboard" element={
+            <SuspenseWrapper>
+              <AuthenticatedRoute>
+                <UserDashboard />
+              </AuthenticatedRoute>
+            </SuspenseWrapper>
+          } />
+          <Route path="/admin" element={
+            <SuspenseWrapper>
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            </SuspenseWrapper>
+          } />
+          
+          {/* Catch-all route */}
+          <Route path="*" element={<SuspenseWrapper><NotFound /></SuspenseWrapper>} />
+        </Routes>
+      </div>
+    </>
   );
 };
 
